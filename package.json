@@ -1,0 +1,26 @@
+{
+    "name": "func-teaching-tracker",
+    "version": "1.0.0",
+    "description": "Azure Functions (Node.js + TypeScript) API for Teaching Tracker — students and payments.",
+    "private": true,
+    "main": "dist/functions/*.js",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "clean": "rimraf dist",
+        "prestart": "npm run clean && npm run build",
+        "start": "func start",
+        "test": "echo \"No tests configured\" && exit 0"
+    },
+    "engines": {
+        "node": ">=24.0.0"
+    },
+    "dependencies": {
+        "@azure/functions": "^4.7.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.3.0",
+        "rimraf": "^6.0.1",
+        "typescript": "^5.6.3"
+    }
+}
