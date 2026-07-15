@@ -1,33 +1,107 @@
-import { store } from '../data/store'
+import { billingYear, store } from '../data/store'
 import {
+    derivePaymentStatus,
     MonthlyPaymentGroup,
     PaymentInput,
     PaymentQuery,
     PaymentRecord,
     paymentStatuses,
     PaymentStatus,
+    PaymentSettlement,
 } from '../models/payment'
-import { getStudentById } from './studentService'
+import { wasHeld } from '../models/session'
+import { Student } from '../models/student'
 
-/** Returns payment records, optionally filtered by studentId, month, or status. */
-export const listPayments = (query: PaymentQuery = {}): PaymentRecord[] =>
-    store.payments.filter((record) => {
-        if (query.studentId !== undefined && record.studentId !== query.studentId) {
-            return false
-        }
-        if (query.month !== undefined && record.month !== query.month) {
-            return false
-        }
-        if (query.status !== undefined && record.status !== query.status) {
-            return false
-        }
-        return true
-    })
+/** Today as YYYY-MM-DD. Isolated here so tests can stub one function. */
+export const todayIso = (): string => new Date().toISOString().slice(0, 10)
+
+/** The twelve billable months of the seed year, e.g. 2026-01 … 2026-12. */
+const billableMonths = (): string[] =>
+    Array.from(
+        { length: 12 },
+        (_, index) => `${billingYear}-${String(index + 1).padStart(2, '0')}`
+    )
+
+/** Classes for a student in a month that actually took place by `today`. */
+const sessionsHeldIn = (
+    studentId: number,
+    month: string,
+    today: string
+): number =>
+    store.sessions.filter(
+        (session) =>
+            session.studentId === studentId &&
+            session.date.startsWith(month) &&
+            wasHeld(session, today)
+    ).length
+
+const findSettlement = (
+    studentId: number,
+    month: string
+): PaymentSettlement | undefined =>
+    store.settlements.find(
+        (item) => item.studentId === studentId && item.month === month
+    )
 
 /**
- * Groups payment records by month (ascending), with per-month totals.
- * Accepts the same filters as {@link listPayments}.
+ * Builds a student's bill for one month from the classes that took place.
+ * Nothing here is stored: change the timetable and the bill follows.
  */
+const buildRecord = (
+    student: Student,
+    month: string,
+    monthIndex: number,
+    today: string
+): PaymentRecord => {
+    const sessionsHeld = sessionsHeldIn(student.id, month, today)
+    const amountDue = sessionsHeld * student.fees
+    const settlement = findSettlement(student.id, month)
+    const amountPaid = settlement?.amountPaid ?? 0
+
+    return {
+        id: student.id * 100 + monthIndex,
+        studentId: student.id,
+        studentName: `${student.firstName} ${student.lastName}`,
+        month,
+        feePerSession: student.fees,
+        sessionsHeld,
+        amountDue,
+        amountPaid,
+        outstanding: Math.max(amountDue - amountPaid, 0),
+        status: derivePaymentStatus(amountDue, amountPaid),
+        notes: settlement?.notes ?? '',
+    }
+}
+
+/** Returns payment records, optionally filtered by studentId, month or status. */
+export const listPayments = (query: PaymentQuery = {}): PaymentRecord[] => {
+    const today = todayIso()
+    const months = billableMonths()
+
+    return store.students
+        .flatMap((student) =>
+            months.map((month, monthIndex) =>
+                buildRecord(student, month, monthIndex, today)
+            )
+        )
+        .filter((record) => {
+            if (
+                query.studentId !== undefined &&
+                record.studentId !== query.studentId
+            ) {
+                return false
+            }
+            if (query.month !== undefined && record.month !== query.month) {
+                return false
+            }
+            if (query.status !== undefined && record.status !== query.status) {
+                return false
+            }
+            return true
+        })
+}
+
+/** Groups payment records by month (ascending), with per-month totals. */
 export const listPaymentsByMonth = (
     query: PaymentQuery = {}
 ): MonthlyPaymentGroup[] => {
@@ -45,76 +119,55 @@ export const listPaymentsByMonth = (
     return [...byMonth.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([month, records]) => {
-            const totalExpected = records.reduce(
-                (sum, record) => sum + record.monthlyFee,
-                0
-            )
-            const totalReceived = records.reduce(
-                (sum, record) => sum + record.amountPaid,
-                0
-            )
+            const sum = (pick: (record: PaymentRecord) => number) =>
+                records.reduce((total, record) => total + pick(record), 0)
+            const totalDue = sum((record) => record.amountDue)
+            const totalReceived = sum((record) => record.amountPaid)
             return {
                 month,
-                totalExpected,
+                totalDue,
                 totalReceived,
-                totalOutstanding: totalExpected - totalReceived,
+                totalOutstanding: Math.max(totalDue - totalReceived, 0),
+                sessionsHeld: sum((record) => record.sessionsHeld),
                 records,
             }
         })
 }
 
 /**
- * Creates or updates one or more payment records.
- * A record is matched by explicit `id`, otherwise by (studentId, month) — the
- * natural key of a monthly payment — so repeated saves for the same month update
- * in place rather than duplicating.
+ * Records a payment against a student's month.
+ * Omitting `amountPaid` settles the month in full — "mark as paid".
  */
 export const savePayments = (inputs: PaymentInput[]): PaymentRecord[] =>
-    inputs.map(saveOne)
+    inputs.map((input) => {
+        const today = todayIso()
+        const monthIndex = billableMonths().indexOf(input.month)
+        const student = store.students.find(
+            (item) => item.id === input.studentId
+        )!
 
-const saveOne = (input: PaymentInput): PaymentRecord => {
-    const existing = findExisting(input)
-    const derivedName =
-        input.studentName ?? deriveStudentName(input.studentId) ?? ''
+        // Settling in full means paying exactly what the classes taught so far
+        // come to — never a figure typed in the hope it matches.
+        const amountDue = sessionsHeldIn(input.studentId, input.month, today) * student.fees
+        const amountPaid = input.amountPaid ?? amountDue
 
-    if (existing) {
-        if (input.month !== undefined) existing.month = input.month
-        if (input.monthlyFee !== undefined) existing.monthlyFee = input.monthlyFee
-        if (input.amountPaid !== undefined) existing.amountPaid = input.amountPaid
-        if (input.status !== undefined) existing.status = input.status
-        if (input.notes !== undefined) existing.notes = input.notes
-        if (input.studentName !== undefined) existing.studentName = input.studentName
-        return existing
-    }
+        const existing = findSettlement(input.studentId, input.month)
+        if (existing) {
+            existing.amountPaid = amountPaid
+            if (input.notes !== undefined) {
+                existing.notes = input.notes
+            }
+        } else {
+            store.settlements.push({
+                studentId: input.studentId,
+                month: input.month,
+                amountPaid,
+                notes: input.notes ?? '',
+            })
+        }
 
-    const record: PaymentRecord = {
-        id: store.nextPaymentId(),
-        studentId: input.studentId,
-        studentName: derivedName,
-        month: input.month,
-        monthlyFee: input.monthlyFee ?? 0,
-        amountPaid: input.amountPaid ?? 0,
-        status: input.status ?? 'Pending',
-        notes: input.notes ?? '',
-    }
-    store.payments.push(record)
-    return record
-}
-
-const findExisting = (input: PaymentInput): PaymentRecord | undefined => {
-    if (typeof input.id === 'number') {
-        return store.payments.find((record) => record.id === input.id)
-    }
-    return store.payments.find(
-        (record) =>
-            record.studentId === input.studentId && record.month === input.month
-    )
-}
-
-const deriveStudentName = (studentId: number): string | undefined => {
-    const student = getStudentById(studentId)
-    return student ? `${student.firstName} ${student.lastName}` : undefined
-}
+        return buildRecord(student, input.month, monthIndex, today)
+    })
 
 /** Validates a raw save payload, returning an error string when invalid. */
 export const validatePaymentInput = (
@@ -128,14 +181,14 @@ export const validatePaymentInput = (
     if (typeof input.studentId !== 'number') {
         return `${at}.studentId is required and must be a number.`
     }
+    if (!store.students.some((student) => student.id === input.studentId)) {
+        return `${at}.studentId ${input.studentId} is not a known student.`
+    }
     if (!input.month || !/^\d{4}-\d{2}$/.test(input.month)) {
         return `${at}.month is required and must be in YYYY-MM format.`
     }
-    if (
-        input.status !== undefined &&
-        !paymentStatuses.includes(input.status as PaymentStatus)
-    ) {
-        return `${at}.status must be one of: ${paymentStatuses.join(', ')}.`
+    if (!billableMonths().includes(input.month)) {
+        return `${at}.month must be a month of ${billingYear}.`
     }
     if (
         input.amountPaid !== undefined &&
@@ -143,11 +196,9 @@ export const validatePaymentInput = (
     ) {
         return `${at}.amountPaid must be a non-negative number.`
     }
-    if (
-        input.monthlyFee !== undefined &&
-        (typeof input.monthlyFee !== 'number' || input.monthlyFee < 0)
-    ) {
-        return `${at}.monthlyFee must be a non-negative number.`
-    }
     return undefined
 }
+
+/** Exported for the status query filter. */
+export const isPaymentStatus = (value: string): value is PaymentStatus =>
+    paymentStatuses.includes(value as PaymentStatus)

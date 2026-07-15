@@ -60,24 +60,49 @@ Base URL when running locally: `http://localhost:7071/api`
 | POST       | `/students`          | Create or update a student (id optional)       |
 | PUT        | `/students/{id}`     | Update the student identified by the route id  |
 | GET        | `/payments`          | List payments (`?studentId=&month=&status=`)   |
-| GET        | `/payments/by-month` | Payments grouped by month, with totals         |
-| POST       | `/payments`          | Create/update one payment or an array of them  |
-| GET        | `/sessions`          | List scheduled classes (`?studentId=`)         |
+| GET        | `/payments/by-month` | Bills grouped by month, with totals            |
+| POST       | `/payments`          | Record a payment (omit `amountPaid` to settle) |
+| GET        | `/sessions`          | List classes (`?studentId=`)                   |
 | POST       | `/sessions`          | Schedule a new class                           |
+| PUT        | `/sessions/{id}`     | Cancel / un-cancel a class                     |
 
 ### Per-environment data
 
 The dataset is selected by the `ENVIRONMENT` app setting (set per environment by
 Terraform), so each environment serves distinct people and volumes:
 
-| Env  | Students | Sessions | Payments | Base fee |
-| ---- | -------- | -------- | -------- | -------- |
-| dev  | 5        | 4        | 60       | £100     |
-| test | 10       | 6        | 120      | £110     |
-| prod | 15       | 8        | 180      | £120     |
+| Env  | Students | Classes / year | Fee per session |
+| ---- | -------- | -------------- | --------------- |
+| dev  | 5        | ~261           | from £100       |
+| test | 10       | ~522           | from £110       |
+| prod | 15       | ~783           | from £120       |
 
-Each student has an agreed monthly `fees` value, which drives their payment
-records' `monthlyFee`. Counts live in `src/data/seed.ts` (`envSeeds`).
+Each student has a weekly class through the seed year (2026), on their own
+weekday, and every Nth is seeded cancelled. Counts live in `src/data/seed.ts`
+(`envSeeds`).
+
+### How billing works
+
+`Student.fees` is the price of **one session**. A month's bill is derived, never
+stored:
+
+```
+amountDue = fees × classes that already took place that month
+```
+
+A class counts when it is **not cancelled** and its date is **not in the future**
+(`wasHeld`). So a month **accrues** as lessons are taught, a future month owes
+nothing, and cancelling a class that already happened reduces the bill by exactly
+one fee. Change the timetable and the bill follows — there is no stored figure to
+drift out of step.
+
+Only what the teacher records is stored (`PaymentSettlement`: amount paid and
+notes). `POST /payments` without an `amountPaid` settles the month in full — it
+pays exactly what the classes come to, rather than a figure typed in hope.
+
+> ⚠️ This makes `/payments` **time-dependent**: the same request returns more as
+> the month goes on. `todayIso()` in `paymentService` is the single place the
+> clock is read.
 
 ### Examples
 
@@ -101,10 +126,20 @@ curl -X PUT http://localhost:7071/api/students/1 \
 # List payments for one student
 curl "http://localhost:7071/api/payments?studentId=1&month=2026-01"
 
-# Save payments (single or array; upsert by id or studentId+month)
+# Mark a month as paid (settles exactly what was taught)
 curl -X POST http://localhost:7071/api/payments \
   -H 'Content-Type: application/json' \
-  -d '[{"studentId":1,"month":"2026-01","monthlyFee":120,"amountPaid":120,"status":"Paid"}]'
+  -d '[{"studentId":1,"month":"2026-01","notes":"Paid by transfer"}]'
+
+# Record a partial payment
+curl -X POST http://localhost:7071/api/payments \
+  -H 'Content-Type: application/json' \
+  -d '[{"studentId":1,"month":"2026-01","amountPaid":130}]'
+
+# Cancel a class (it stops being billed)
+curl -X PUT http://localhost:7071/api/sessions/1001 \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"Cancelled"}'
 ```
 
 ## Hosted environments
