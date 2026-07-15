@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and adjust as needed, or rely on the defaults in variables.tf.
+project      = "teachtracker"
+github_owner = "budhap-dev"
+github_repo  = "func-teaching-tracker"
+
+# One Function App + OIDC identity is created per environment.
+# Keys MUST match the GitHub Environment names in .github/workflows/deploy.yml.
+environments = {
+  dev = {
+    location     = "eastus"
+    node_version = "24"
+  }
+  test = {
+    location     = "eastus"
+    node_version = "24"
+  }
+  prod = {
+    location               = "eastus"
+    node_version           = "24"
+    maximum_instance_count = 100
+  }
+}

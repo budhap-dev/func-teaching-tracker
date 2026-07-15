@@ -7,3 +7,5 @@ src
 .gitignore
 .funcignore
 README.md
+infra
+.github

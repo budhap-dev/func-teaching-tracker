@@ -89,7 +89,13 @@ curl -X POST http://localhost:7071/api/payments \
 
 ## Deploy
 
-Build and deploy to an Azure Function App (Node 24 runtime):
+CI/CD is set up across three environments (`dev` → `test` → `prod`) via GitHub
+Actions and Terraform. A push to `main` builds once and promotes the same artifact
+through each environment, with prod gated by approval. See
+**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the architecture, pipeline, and
+one-time bootstrap runbook.
+
+Manual publish to a single Function App (Node 24 runtime), as a fallback:
 
 ```bash
 npm run clean && npm run build
