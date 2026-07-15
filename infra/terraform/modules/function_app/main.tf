@@ -83,6 +83,16 @@ resource "azurerm_function_app_flex_consumption" "this" {
 
   site_config {
     application_insights_connection_string = azurerm_application_insights.this.connection_string
+
+    # Allow the paired Static Web App origin(s) to call this API from the browser.
+    # Omitted entirely when no origins are configured.
+    dynamic "cors" {
+      for_each = length(var.cors_allowed_origins) > 0 ? [1] : []
+      content {
+        allowed_origins     = var.cors_allowed_origins
+        support_credentials = false
+      }
+    }
   }
 
   app_settings = {

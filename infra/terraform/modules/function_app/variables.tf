@@ -30,6 +30,12 @@ variable "maximum_instance_count" {
   default     = 40
 }
 
+variable "cors_allowed_origins" {
+  description = "Origins allowed to call this Function App from the browser (e.g. the paired Static Web App URL). Empty list leaves CORS unconfigured."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)
