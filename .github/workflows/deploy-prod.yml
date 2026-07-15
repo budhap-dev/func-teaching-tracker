@@ -1,18 +1,17 @@
-name: Build & Deploy to Azure Functions
+name: Deploy to Production (manual)
 
+# Production is gated behind a manual trigger (run from the Actions tab or via
+# `gh workflow run deploy-prod.yml`). This is the free-plan alternative to a
+# GitHub Environment required-reviewer rule. It builds fresh and deploys to the
+# prod Function App.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
-# OIDC login needs id-token: write; contents: read for checkout.
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  # Build once, then promote the SAME artifact through dev -> test.
-  # Production is deployed separately and manually via deploy-prod.yml.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -30,7 +29,6 @@ jobs:
           npm ci
           npm run build
 
-      # Ship only production dependencies in the deployment package.
       - name: Prune dev dependencies
         run: npm prune --omit=dev
 
@@ -47,14 +45,8 @@ jobs:
             package-lock.json
             .funcignore
 
-  dev:
+  prod:
     needs: build
     uses: ./.github/workflows/deploy-env.yml
     with:
-      environment: dev
-
-  test:
-    needs: dev
-    uses: ./.github/workflows/deploy-env.yml
-    with:
-      environment: test
+      environment: prod
