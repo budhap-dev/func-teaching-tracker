@@ -13,13 +13,13 @@ environments (`dev`, `test`, `prod`) using Terraform and GitHub Actions.
 ```mermaid
 flowchart TB
     dev_push[Push to main] --> build
+    manual[Manual run: deploy-prod.yml] --> buildp
 
     subgraph GHA[GitHub Actions]
         build[build: npm ci and build, upload artifact]
         build --> jdev[deploy dev]
         jdev --> jtest[deploy test]
-        jtest --> gate{{prod approval}}
-        gate --> jprod[deploy prod]
+        buildp[build] --> jprod[deploy prod]
     end
 
     jdev -->|OIDC| adev[App dev]
@@ -42,23 +42,63 @@ flowchart TB
     TF -.creates OIDC identities.-> GHA
 ```
 
-Key idea: **build once, promote the same artifact** through dev → test → prod.
-Each environment is a fully isolated Azure resource group with its own Function App
-and its own CI identity. No long-lived secrets are stored anywhere — GitHub Actions
+Key idea: **build once, promote the same artifact** from dev → test. Each
+environment is a fully isolated Azure resource group with its own Function App and
+its own CI identity. No long-lived secrets are stored anywhere — GitHub Actions
 authenticates to Azure with short-lived **OIDC** tokens.
 
 ## Environments
 
-| Environment | Resource group        | Trigger                      | Scale (max instances) |
-| ----------- | --------------------- | ---------------------------- | --------------------- |
-| `dev`       | `rg-teachtracker-dev`  | auto, on push to `main`      | 40                    |
-| `test`      | `rg-teachtracker-test` | auto, after `dev` succeeds   | 40                    |
-| `prod`      | `rg-teachtracker-prod` | after `test` **+ approval**  | 100                   |
+| Environment | Resource group         | Trigger                     | Scale (max instances) |
+| ----------- | ---------------------- | --------------------------- | --------------------- |
+| `dev`       | `rg-teachtracker-dev`  | auto, on push to `main`     | 40                    |
+| `test`      | `rg-teachtracker-test` | auto, after `dev` succeeds  | 40                    |
+| `prod`      | `rg-teachtracker-prod` | **manual** (`deploy-prod.yml`) | 100                |
+
+### Hosted URLs
+
+| Env    | API base URL                                                | Function App                    | Allowed frontend origin (CORS)                            |
+| ------ | ----------------------------------------------------------- | ------------------------------- | --------------------------------------------------------- |
+| `dev`  | https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api   | `func-teachtracker-dev-pjlmrq`  | https://delightful-water-09b7c480f.7.azurestaticapps.net   |
+| `test` | https://func-teachtracker-test-mtbace.azurewebsites.net/api  | `func-teachtracker-test-mtbace` | https://delightful-sea-0e15b030f.7.azurestaticapps.net     |
+| `prod` | https://func-teachtracker-prod-gjvecw.azurewebsites.net/api  | `func-teachtracker-prod-gjvecw` | https://nice-sea-095463c0f.7.azurestaticapps.net           |
+
+Subscription `e16bea76-64f0-45a5-ae4a-53701ff61801` · Tenant `d2fa8fd6-d1f2-4ac4-bcf5-e8dd34885bb3`
 
 Environments are defined by the `environments` map in
 [infra/terraform/variables.tf](../infra/terraform/variables.tf). The map keys
 (`dev`/`test`/`prod`) are the contract: they must match the GitHub Environment names
-in the workflow and the OIDC federated-credential subjects.
+in the workflow, the OIDC federated-credential subjects, and the `ENVIRONMENT` app
+setting that selects the seed dataset.
+
+### Per-environment data
+
+The `ENVIRONMENT` app setting (set by Terraform) selects the dataset, so each env
+serves distinct people and volumes — see [`src/data/seed.ts`](../src/data/seed.ts):
+
+| Env    | Students | Sessions | Payments | Base fee | Expected / month |
+| ------ | -------- | -------- | -------- | -------- | ---------------- |
+| `dev`  | 5        | 4        | 60       | £100     | £590             |
+| `test` | 10       | 6        | 120      | £110     | £1,295           |
+| `prod` | 15       | 8        | 180      | £120     | £2,115           |
+
+## CORS
+
+Each Function App allows **only** its paired Static Web App origin, set via
+`cors_allowed_origins` in the `environments` map. Cross-env calls are refused
+(dev's frontend cannot call the prod API).
+
+```bash
+az functionapp cors show -n func-teachtracker-dev-pjlmrq -g rg-teachtracker-dev
+```
+
+> ⚠️ `az functionapp show --query siteConfig.cors` reports **empty** on Flex
+> Consumption even when CORS is set correctly — a reporting quirk, not a
+> misconfiguration. Use `az functionapp cors show`, or check the
+> `Access-Control-Allow-Origin` header on an `OPTIONS` preflight.
+
+After changing a Static Web App URL, update `cors_allowed_origins` and re-apply;
+it's an in-place update (no downtime, no recreate).
 
 ## Azure resources (per environment)
 
@@ -80,18 +120,36 @@ assignment scoped to that environment's resource group.
 
 ## CI/CD pipeline
 
-Defined in [deploy.yml](../.github/workflows/deploy.yml) (orchestrator) and
+Defined in [deploy.yml](../.github/workflows/deploy.yml) (dev → test on push),
+[deploy-prod.yml](../.github/workflows/deploy-prod.yml) (manual prod), and
 [deploy-env.yml](../.github/workflows/deploy-env.yml) (reusable per-env deploy).
 
 1. **build** — `npm ci`, `npm run build`, prune dev dependencies, then upload the
    deployment package (`dist`, prod `node_modules`, `host.json`, `package.json`,
    `.funcignore`) as a workflow artifact.
-2. **dev** → **test** → **prod** — each job downloads that same artifact, logs into
-   Azure via OIDC using the target environment's variables, and deploys with
+2. **dev** → **test** — each job downloads that same artifact, logs into Azure via
+   OIDC using the target environment's variables, and deploys with
    `Azure/functions-action`. Jobs are chained with `needs:`, so a failure stops
    promotion.
-3. **prod approval** — enforced by the GitHub Environment protection rule on `prod`
-   (a required reviewer), not by YAML. Configure it once in the GitHub UI.
+3. **prod** — a separate `workflow_dispatch`-only workflow that builds fresh and
+   deploys to prod.
+
+### Deploying to production
+
+There is **no approval button**. GitHub Environment *required reviewers* need a
+public repo or a paid plan — setting one on this repo returns `HTTP 422` — so prod
+is gated by being a separate, manually-triggered workflow instead.
+
+```bash
+gh workflow run deploy-prod.yml --repo budhap-dev/func-teaching-tracker --ref main
+```
+
+Or: **Actions → "Deploy to Production (manual)" → Run workflow → `main`**.
+
+> ⚠️ **Deploy this API before the frontend** when shipping a breaking change. The
+> frontend calls `/sessions` and `/payments/by-month`; if it ships first against an
+> older API those 404 and its screens render empty. API-first is safe — the flat
+> `/payments` an older bundle uses is still served.
 
 ### How OIDC auth works (no secrets)
 
@@ -134,7 +192,7 @@ subscription):
 ```bash
 # 1. Authenticate to Azure
 az login
-az account set --subscription "<your-subscription-id>"
+az account set --subscription "e16bea76-64f0-45a5-ae4a-53701ff61801"
 
 # 2. Provision all three environments + OIDC identities
 cd infra/terraform
@@ -145,18 +203,30 @@ terraform apply                         # review the plan, then "yes"
 cd ../..
 ./infra/scripts/configure-github-environments.sh
 
-# 4. Add a required reviewer to the prod environment (one time)
-#    GitHub -> repo Settings -> Environments -> prod -> Required reviewers
+# 4. Deploy dev + test
+git push                                # build -> dev -> test
 
-# 5. Deploy
-git push                                # build -> dev -> test -> prod (approve)
+# 5. Deploy prod when ready (manual — no approval gate on this plan)
+gh workflow run deploy-prod.yml --ref main
+```
+
+Terraform state is **local** (`infra/terraform/terraform.tfstate`) — run
+`terraform` from the machine that holds it, and read outputs there:
+
+```bash
+terraform output function_app_hostnames   # -> the frontend's VITE_API_BASE_URL
+terraform output azure_client_ids         # -> GitHub AZURE_CLIENT_ID per env
 ```
 
 ## Common operations
 
 - **Add an environment** (e.g. `staging`): add an entry to the `environments` map,
-  `terraform apply`, re-run the configure script, and add a `staging` job to
-  `deploy.yml` in the promotion chain.
+  `terraform apply`, re-run the configure script, add a `staging` job to
+  `deploy.yml` in the promotion chain, and add a matching `envSeeds` entry in
+  [`src/data/seed.ts`](../src/data/seed.ts) (without one it falls back to `dev`'s data).
+- **Resize an environment's dataset**: change `studentCount` / `sessionCount` for
+  that env in `envSeeds` — students are generated from the name pool, so no records
+  need hand-editing.
 - **Change region or scale** for an environment: edit its entry in the
   `environments` map (`location`, `maximum_instance_count`, `instance_memory_in_mb`)
   and `terraform apply`.
@@ -173,5 +243,7 @@ git push                                # build -> dev -> test -> prod (approve)
 | `azure/login` fails with `AADSTS700213` / no match   | Job `environment:` doesn't match the federated subject, or variables not set.      |
 | `terraform apply` errors on unsupported Node version | Set `node_version` to `22`/`20` for that env in `terraform.tfvars`.                |
 | `terraform apply` fails creating the app registration | Your account lacks app-registration / role-assignment rights (need Owner or UAA). |
-| prod deploys without waiting                          | Add a **Required reviewer** to the `prod` GitHub Environment.                       |
 | Deploy succeeds but functions 404                     | Ensure `AzureWebJobsFeatureFlags=EnableWorkerIndexing` (set by Terraform).          |
+| Browser blocked by CORS                              | Origin missing from that env's `cors_allowed_origins`. Check `az functionapp cors show` — **not** `siteConfig.cors`, which is always empty on Flex Consumption. |
+| Frontend screens empty after a prod deploy            | Frontend shipped ahead of this API — `/sessions` + `/payments/by-month` 404. Deploy this API, then the frontend. |
+| An env serves the wrong dataset                      | Its `ENVIRONMENT` app setting doesn't match a key in `envSeeds` (`src/data/seed.ts`); unknown values fall back to `dev`. |
