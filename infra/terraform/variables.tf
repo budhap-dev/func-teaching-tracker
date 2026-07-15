@@ -34,17 +34,20 @@ variable "environments" {
   }))
   default = {
     dev = {
-      location     = "eastus"
-      node_version = "24"
+      location             = "eastus"
+      node_version         = "24"
+      cors_allowed_origins = ["https://delightful-water-09b7c480f.7.azurestaticapps.net"]
     }
     test = {
-      location     = "eastus"
-      node_version = "24"
+      location             = "eastus"
+      node_version         = "24"
+      cors_allowed_origins = ["https://delightful-sea-0e15b030f.7.azurestaticapps.net"]
     }
     prod = {
       location               = "eastus"
       node_version           = "24"
       maximum_instance_count = 100
+      cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
     }
   }
 }
