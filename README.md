@@ -57,7 +57,24 @@ Base URL when running locally: `http://localhost:7071/api`
 | POST       | `/students`          | Create or update a student (id optional)       |
 | PUT        | `/students/{id}`     | Update the student identified by the route id  |
 | GET        | `/payments`          | List payments (`?studentId=&month=&status=`)   |
+| GET        | `/payments/by-month` | Payments grouped by month, with totals         |
 | POST       | `/payments`          | Create/update one payment or an array of them  |
+| GET        | `/sessions`          | List scheduled classes (`?studentId=`)         |
+| POST       | `/sessions`          | Schedule a new class                           |
+
+### Per-environment data
+
+The dataset is selected by the `ENVIRONMENT` app setting (set per environment by
+Terraform), so each environment serves distinct people and volumes:
+
+| Env  | Students | Sessions | Payments | Base fee |
+| ---- | -------- | -------- | -------- | -------- |
+| dev  | 5        | 4        | 60       | £100     |
+| test | 10       | 6        | 120      | £110     |
+| prod | 15       | 8        | 180      | £120     |
+
+Each student has an agreed monthly `fees` value, which drives their payment
+records' `monthlyFee`. Counts live in `src/data/seed.ts` (`envSeeds`).
 
 ### Examples
 

@@ -1,88 +1,200 @@
-import { Student } from '../models/student'
+import { Student, StudentMode } from '../models/student'
 import { PaymentRecord, PaymentStatus } from '../models/payment'
+import { ScheduledSession } from '../models/session'
 
-export const seedStudents: Student[] = [
-    {
-        id: 1,
-        studentId: 'STU-AX7M2P',
-        firstName: 'Asha',
-        lastName: 'Perera',
-        dob: '2011-05-14',
-        subjects: ['Mathematics', 'Physics'],
-        school: 'Kingston Grammar School',
-        year: '10',
-        progress: 88,
-        mode: 'Face to Face',
-        notes: 'Excellent problem solving skills.',
-        parentName: 'Nadia Patel',
-        contactNumber: '+44 7700 900123',
-        address: '12 Oak Road, Kingston upon Thames, KT2 6LP',
-    },
-    {
-        id: 2,
-        studentId: 'STU-CL4Q8R',
-        firstName: 'Nimal',
-        lastName: 'Fernando',
-        dob: '2012-08-22',
-        subjects: ['Physics'],
-        school: 'St. Pauls School',
-        year: '9',
-        progress: 74,
-        mode: 'Online',
-        notes: 'Needs extra practice with experiments.',
-        parentName: 'Martin Foster',
-        contactNumber: '+44 7710 123456',
-        address: '23 Elm Grove, Wimbledon, SW19 7HQ',
-    },
-    {
-        id: 3,
-        studentId: 'STU-KV9P1T',
-        firstName: 'Kavindi',
-        lastName: 'Silva',
-        dob: '2013-01-11',
-        subjects: ['English'],
-        school: 'Epsom College',
-        year: '8',
-        progress: 82,
-        mode: 'Face to Face',
-        notes: 'Strong writing and reading confidence.',
-        parentName: 'Helen Clarke',
-        contactNumber: '+44 7720 456789',
-        address: '5 Willow Lane, Guildford, GU1 2AB',
-    },
-    {
-        id: 4,
-        studentId: 'STU-DJ2L6N',
-        firstName: 'Dilan',
-        lastName: 'Jayawardena',
-        dob: '2010-11-03',
-        subjects: ['Chemistry'],
-        school: 'Harrow School',
-        year: '11',
-        progress: 70,
-        mode: 'Online',
-        notes: 'Needs more consistent revision habits.',
-        parentName: 'David Hughes',
-        contactNumber: '+44 7730 987654',
-        address: '88 High Street, Harrow, HA1 4DX',
-    },
-    {
-        id: 5,
-        studentId: 'STU-RP8N4W',
-        firstName: 'Rashmi',
-        lastName: 'Weerasinghe',
-        dob: '2011-09-16',
-        subjects: ['Biology', 'Chemistry'],
-        school: 'Wycombe Abbey',
-        year: '10',
-        progress: 86,
-        mode: 'Face to Face',
-        notes: 'Very attentive during lab sessions.',
-        parentName: 'Laura Bennett',
-        contactNumber: '+44 7740 111222',
-        address: '14 Lake View, Buckingham, MK18 1PT',
-    },
+// Each environment serves a distinct dataset — different people and a
+// different volume — so dev/test/prod are easy to tell apart in the UI.
+// Students are generated from per-environment name pools, so changing a
+// count below is all that's needed to resize an environment's data.
+
+interface EnvSeedConfig {
+    /** Prefix for the human-facing student code, e.g. DEV-0001. */
+    codePrefix: string
+    /** Tag appended to each student's notes so the source env is obvious. */
+    noteTag: string
+    schools: string[]
+    town: string
+    phonePrefix: string
+    /** Lowest monthly fee; each student varies deterministically from this. */
+    baseFee: number
+    /** How many students this environment serves. */
+    studentCount: number
+    /** How many scheduled classes this environment serves. */
+    sessionCount: number
+    names: [string, string][]
+}
+
+const subjectRotation: string[][] = [
+    ['Mathematics', 'Physics'],
+    ['Physics'],
+    ['English'],
+    ['Chemistry'],
+    ['Biology', 'Chemistry'],
+    ['Mathematics'],
+    ['History', 'English'],
+    ['English', 'Mathematics'],
 ]
+
+const yearRotation = ['8', '9', '10', '11']
+
+const parentFirstNames = [
+    'Nadia',
+    'Martin',
+    'Helen',
+    'David',
+    'Laura',
+    'James',
+    'Sophie',
+    'Richard',
+    'Claire',
+    'Timothy',
+    'Anita',
+    'Karen',
+    'Mark',
+    'Priya',
+    'Daniel',
+]
+
+const envSeeds: Record<string, EnvSeedConfig> = {
+    dev: {
+        codePrefix: 'DEV',
+        noteTag: '[dev] sample record',
+        schools: ['Dev Sandbox Academy'],
+        town: 'Localhost',
+        phonePrefix: '+44 7000 0000',
+        baseFee: 100,
+        studentCount: 5,
+        sessionCount: 4,
+        names: [
+            ['Ava', 'Devlin'],
+            ['Sam', 'Bailey'],
+            ['Priya', 'Nair'],
+            ['Leo', 'Whitfield'],
+            ['Zara', 'Ahmed'],
+        ],
+    },
+    test: {
+        codePrefix: 'TST',
+        noteTag: '[test] QA fixture',
+        schools: ['Riverside Test College', 'Stagingfield High'],
+        town: 'Stagingtown',
+        phonePrefix: '+44 7100 0000',
+        baseFee: 110,
+        studentCount: 10,
+        sessionCount: 6,
+        names: [
+            ['Oliver', 'Grant'],
+            ['Maya', 'Lindqvist'],
+            ['Noah', 'Abassi'],
+            ['Ella', 'Fontaine'],
+            ['Ravi', 'Kapoor'],
+            ['Sofia', 'Marino'],
+            ['Jack', 'Turner'],
+            ['Amara', 'Osei'],
+            ['Ben', 'Fletcher'],
+            ['Iris', 'Kovac'],
+        ],
+    },
+    prod: {
+        codePrefix: 'STU',
+        noteTag: 'Progressing well.',
+        schools: [
+            'Kingston Grammar School',
+            'St. Pauls School',
+            'Epsom College',
+            'Harrow School',
+            'Wycombe Abbey',
+        ],
+        town: 'Guildford',
+        phonePrefix: '+44 7700 9000',
+        baseFee: 120,
+        studentCount: 15,
+        sessionCount: 8,
+        names: [
+            ['Asha', 'Perera'],
+            ['Nimal', 'Fernando'],
+            ['Kavindi', 'Silva'],
+            ['Dilan', 'Jayawardena'],
+            ['Rashmi', 'Weerasinghe'],
+            ['Chaminda', 'Ratnayake'],
+            ['Tharushi', 'Kumari'],
+            ['Sanjaya', 'Bandara'],
+            ['Mihiri', 'Gunasekara'],
+            ['Kasun', 'Mendis'],
+            ['Ishara', 'Dias'],
+            ['Malith', 'Rajapaksa'],
+            ['Nethmi', 'Wijesinghe'],
+            ['Roshan', 'Alwis'],
+            ['Dinuka', 'Senanayake'],
+        ],
+    },
+}
+
+/** Dataset used when ENVIRONMENT is unset or unrecognised (local dev). */
+export const defaultEnv = 'dev'
+
+/** Environments that have a seed dataset. */
+export const seededEnvironments = Object.keys(envSeeds)
+
+const buildStudents = (config: EnvSeedConfig): Student[] =>
+    config.names.slice(0, config.studentCount).map(([firstName, lastName], i) => {
+        const mode: StudentMode = i % 2 === 0 ? 'Face to Face' : 'Online'
+        return {
+            id: i + 1,
+            studentId: `${config.codePrefix}-${String(i + 1).padStart(4, '0')}`,
+            firstName,
+            lastName,
+            dob: `${2010 + (i % 4)}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`,
+            subjects: subjectRotation[i % subjectRotation.length],
+            school: config.schools[i % config.schools.length],
+            year: yearRotation[i % yearRotation.length],
+            progress: 55 + ((i * 7) % 41),
+            mode,
+            fees: config.baseFee + (i % 4) * 15,
+            notes: config.noteTag,
+            parentName: `${parentFirstNames[i % parentFirstNames.length]} ${lastName}`,
+            contactNumber: `${config.phonePrefix}${String(i + 1).padStart(2, '0')}`,
+            address: `${i + 1} Sample Street, ${config.town}`,
+        }
+    })
+
+const sessionNotes = [
+    'Problem solving practice',
+    'Lab preparation',
+    'Reading and writing review',
+    'Revision session',
+    'Past paper walkthrough',
+    'Coursework feedback',
+    'Exam technique',
+    'Catch-up session',
+]
+
+const sessionTimes = ['09:30', '11:00', '14:00', '16:00', '17:30']
+
+/**
+ * Builds scheduled classes for the given students. Dates are relative to today
+ * so the dashboard's "upcoming sessions" list is always populated.
+ */
+const buildSessions = (
+    students: Student[],
+    sessionCount: number
+): ScheduledSession[] => {
+    const today = new Date()
+    return students.slice(0, sessionCount).map((student, i) => {
+        const date = new Date(today)
+        date.setDate(date.getDate() + i + 1)
+        return {
+            id: 100 + i + 1,
+            studentId: student.id,
+            studentName: `${student.firstName} ${student.lastName}`,
+            year: student.year,
+            subject: student.subjects[0],
+            date: date.toISOString().slice(0, 10),
+            time: sessionTimes[i % sessionTimes.length],
+            notes: sessionNotes[i % sessionNotes.length],
+        }
+    })
+}
 
 const paymentStatusNotes: Record<PaymentStatus, string> = {
     Paid: 'Received in full',
@@ -91,8 +203,9 @@ const paymentStatusNotes: Record<PaymentStatus, string> = {
 }
 
 /**
- * Builds twelve monthly payment records per student for the given year,
- * using a deterministic pattern so seeded data is stable across restarts.
+ * Builds twelve monthly payment records per student for the given year, using
+ * each student's agreed `fees` as the monthly amount. Deterministic so seeded
+ * data is stable across restarts.
  */
 export const buildSeedPayments = (
     students: Student[],
@@ -105,7 +218,7 @@ export const buildSeedPayments = (
 
     return students.flatMap((student) =>
         months.map((month, monthIndex) => {
-            const monthlyFee = 120 + (student.id % 4) * 10
+            const monthlyFee = student.fees
             const pattern = (student.id + monthIndex) % 3
             const status: PaymentStatus =
                 pattern === 0 ? 'Paid' : pattern === 1 ? 'Partial' : 'Pending'
@@ -128,4 +241,13 @@ export const buildSeedPayments = (
             }
         })
     )
+}
+
+/** Builds the full dataset (students + sessions) for one environment. */
+export const buildSeedForEnv = (
+    env: string
+): { students: Student[]; sessions: ScheduledSession[] } => {
+    const config = envSeeds[env] ?? envSeeds[defaultEnv]
+    const students = buildStudents(config)
+    return { students, sessions: buildSessions(students, config.sessionCount) }
 }

@@ -1,5 +1,6 @@
 import { store } from '../data/store'
 import {
+    MonthlyPaymentGroup,
     PaymentInput,
     PaymentQuery,
     PaymentRecord,
@@ -22,6 +23,45 @@ export const listPayments = (query: PaymentQuery = {}): PaymentRecord[] =>
         }
         return true
     })
+
+/**
+ * Groups payment records by month (ascending), with per-month totals.
+ * Accepts the same filters as {@link listPayments}.
+ */
+export const listPaymentsByMonth = (
+    query: PaymentQuery = {}
+): MonthlyPaymentGroup[] => {
+    const byMonth = new Map<string, PaymentRecord[]>()
+
+    listPayments(query).forEach((record) => {
+        const existing = byMonth.get(record.month)
+        if (existing) {
+            existing.push(record)
+        } else {
+            byMonth.set(record.month, [record])
+        }
+    })
+
+    return [...byMonth.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([month, records]) => {
+            const totalExpected = records.reduce(
+                (sum, record) => sum + record.monthlyFee,
+                0
+            )
+            const totalReceived = records.reduce(
+                (sum, record) => sum + record.amountPaid,
+                0
+            )
+            return {
+                month,
+                totalExpected,
+                totalReceived,
+                totalOutstanding: totalExpected - totalReceived,
+                records,
+            }
+        })
+}
 
 /**
  * Creates or updates one or more payment records.
