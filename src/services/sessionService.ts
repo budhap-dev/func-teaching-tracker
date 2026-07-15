@@ -1,5 +1,10 @@
 import { store } from '../data/store'
-import { ScheduledSession, SessionInput } from '../models/session'
+import {
+    ScheduledSession,
+    SessionInput,
+    sessionStatuses,
+    SessionUpdate,
+} from '../models/session'
 import { getStudentById } from './studentService'
 
 /** Returns scheduled sessions, optionally filtered by student, date-ordered. */
@@ -26,9 +31,43 @@ export const createSession = (input: SessionInput): ScheduledSession => {
         date: input.date,
         time: input.time,
         notes: input.notes ?? '',
+        status: 'Scheduled',
     }
     store.sessions.push(session)
     return session
+}
+
+/** Returns a single session by id, or `undefined`. */
+export const getSessionById = (id: number): ScheduledSession | undefined =>
+    store.sessions.find((session) => session.id === id)
+
+/**
+ * Cancels or un-cancels a class. Cancelling never deletes the record — the
+ * class stays visible, marked, so there is still a note of what was planned.
+ */
+export const updateSessionStatus = (
+    id: number,
+    update: SessionUpdate
+): ScheduledSession | undefined => {
+    const session = getSessionById(id)
+    if (!session) {
+        return undefined
+    }
+    session.status = update.status
+    return session
+}
+
+/** Validates a raw status update, returning an error string when invalid. */
+export const validateSessionUpdate = (
+    update: Partial<SessionUpdate> | undefined
+): string | undefined => {
+    if (!update || typeof update !== 'object') {
+        return 'Request body must be a session update object.'
+    }
+    if (!update.status || !sessionStatuses.includes(update.status)) {
+        return `status is required and must be one of: ${sessionStatuses.join(', ')}.`
+    }
+    return undefined
 }
 
 /** Validates a raw create payload, returning an error string when invalid. */
