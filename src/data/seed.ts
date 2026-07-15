@@ -1,332 +1,200 @@
-import { Student } from '../models/student'
+import { Student, StudentMode } from '../models/student'
 import { PaymentRecord, PaymentStatus } from '../models/payment'
+import { ScheduledSession } from '../models/session'
 
-// Each environment gets a distinct dataset — different people AND a different
-// volume of records — so dev/test/prod are easy to tell apart in the UI.
-// The active set is chosen by the ENVIRONMENT app setting (see store.ts).
+// Each environment serves a distinct dataset — different people and a
+// different volume — so dev/test/prod are easy to tell apart in the UI.
+// Students are generated from per-environment name pools, so changing a
+// count below is all that's needed to resize an environment's data.
 
-const devStudents: Student[] = [
-    {
-        id: 1,
-        studentId: 'DEV-AV3K1P',
-        firstName: 'Ava',
-        lastName: 'Devlin',
-        dob: '2012-04-02',
-        subjects: ['Mathematics'],
-        school: 'Dev Sandbox Academy',
-        year: '9',
-        progress: 61,
-        mode: 'Online',
-        notes: '[dev] sample record',
-        parentName: 'Karen Devlin',
-        contactNumber: '+44 7000 000001',
-        address: '1 Dev Street, Localhost, DE1 0PM',
-    },
-    {
-        id: 2,
-        studentId: 'DEV-SB7M4Q',
-        firstName: 'Sam',
-        lastName: 'Bailey',
-        dob: '2013-10-19',
-        subjects: ['English', 'History'],
-        school: 'Dev Sandbox Academy',
-        year: '8',
-        progress: 55,
-        mode: 'Face to Face',
-        notes: '[dev] sample record',
-        parentName: 'Mark Bailey',
-        contactNumber: '+44 7000 000002',
-        address: '2 Dev Street, Localhost, DE1 0PM',
-    },
-    {
-        id: 3,
-        studentId: 'DEV-PN9L2T',
-        firstName: 'Priya',
-        lastName: 'Nair',
-        dob: '2011-06-28',
-        subjects: ['Physics', 'Chemistry'],
-        school: 'Dev Sandbox Academy',
-        year: '10',
-        progress: 73,
-        mode: 'Online',
-        notes: '[dev] sample record',
-        parentName: 'Anita Nair',
-        contactNumber: '+44 7000 000003',
-        address: '3 Dev Street, Localhost, DE1 0PM',
-    },
+interface EnvSeedConfig {
+    /** Prefix for the human-facing student code, e.g. DEV-0001. */
+    codePrefix: string
+    /** Tag appended to each student's notes so the source env is obvious. */
+    noteTag: string
+    schools: string[]
+    town: string
+    phonePrefix: string
+    /** Lowest monthly fee; each student varies deterministically from this. */
+    baseFee: number
+    /** How many students this environment serves. */
+    studentCount: number
+    /** How many scheduled classes this environment serves. */
+    sessionCount: number
+    names: [string, string][]
+}
+
+const subjectRotation: string[][] = [
+    ['Mathematics', 'Physics'],
+    ['Physics'],
+    ['English'],
+    ['Chemistry'],
+    ['Biology', 'Chemistry'],
+    ['Mathematics'],
+    ['History', 'English'],
+    ['English', 'Mathematics'],
 ]
 
-const testStudents: Student[] = [
-    {
-        id: 1,
-        studentId: 'TST-OG1A2B',
-        firstName: 'Oliver',
-        lastName: 'Grant',
-        dob: '2011-02-11',
-        subjects: ['Mathematics', 'Physics'],
-        school: 'Riverside Test College',
-        year: '10',
-        progress: 80,
-        mode: 'Face to Face',
-        notes: '[test] QA fixture',
-        parentName: 'Diane Grant',
-        contactNumber: '+44 7100 000001',
-        address: '1 Test Avenue, Stagingtown, TS2 1QA',
-    },
-    {
-        id: 2,
-        studentId: 'TST-ML3C4D',
-        firstName: 'Maya',
-        lastName: 'Lindqvist',
-        dob: '2012-07-05',
-        subjects: ['Biology'],
-        school: 'Riverside Test College',
-        year: '9',
-        progress: 67,
-        mode: 'Online',
-        notes: '[test] QA fixture',
-        parentName: 'Erik Lindqvist',
-        contactNumber: '+44 7100 000002',
-        address: '2 Test Avenue, Stagingtown, TS2 1QA',
-    },
-    {
-        id: 3,
-        studentId: 'TST-NA5E6F',
-        firstName: 'Noah',
-        lastName: 'Abassi',
-        dob: '2013-03-22',
-        subjects: ['English'],
-        school: 'Riverside Test College',
-        year: '8',
-        progress: 72,
-        mode: 'Face to Face',
-        notes: '[test] QA fixture',
-        parentName: 'Layla Abassi',
-        contactNumber: '+44 7100 000003',
-        address: '3 Test Avenue, Stagingtown, TS2 1QA',
-    },
-    {
-        id: 4,
-        studentId: 'TST-EF7G8H',
-        firstName: 'Ella',
-        lastName: 'Fontaine',
-        dob: '2010-11-30',
-        subjects: ['Chemistry', 'Mathematics'],
-        school: 'Riverside Test College',
-        year: '11',
-        progress: 84,
-        mode: 'Online',
-        notes: '[test] QA fixture',
-        parentName: 'Paul Fontaine',
-        contactNumber: '+44 7100 000004',
-        address: '4 Test Avenue, Stagingtown, TS2 1QA',
-    },
-    {
-        id: 5,
-        studentId: 'TST-RK9I0J',
-        firstName: 'Ravi',
-        lastName: 'Kapoor',
-        dob: '2012-01-14',
-        subjects: ['Physics'],
-        school: 'Riverside Test College',
-        year: '9',
-        progress: 59,
-        mode: 'Face to Face',
-        notes: '[test] QA fixture',
-        parentName: 'Sunita Kapoor',
-        contactNumber: '+44 7100 000005',
-        address: '5 Test Avenue, Stagingtown, TS2 1QA',
-    },
-    {
-        id: 6,
-        studentId: 'TST-SM1K2L',
-        firstName: 'Sofia',
-        lastName: 'Marino',
-        dob: '2011-09-09',
-        subjects: ['History', 'English'],
-        school: 'Riverside Test College',
-        year: '10',
-        progress: 76,
-        mode: 'Online',
-        notes: '[test] QA fixture',
-        parentName: 'Giulia Marino',
-        contactNumber: '+44 7100 000006',
-        address: '6 Test Avenue, Stagingtown, TS2 1QA',
-    },
+const yearRotation = ['8', '9', '10', '11']
+
+const parentFirstNames = [
+    'Nadia',
+    'Martin',
+    'Helen',
+    'David',
+    'Laura',
+    'James',
+    'Sophie',
+    'Richard',
+    'Claire',
+    'Timothy',
+    'Anita',
+    'Karen',
+    'Mark',
+    'Priya',
+    'Daniel',
 ]
 
-const prodStudents: Student[] = [
-    {
-        id: 1,
-        studentId: 'STU-AX7M2P',
-        firstName: 'Asha',
-        lastName: 'Perera',
-        dob: '2011-05-14',
-        subjects: ['Mathematics', 'Physics'],
-        school: 'Kingston Grammar School',
-        year: '10',
-        progress: 88,
-        mode: 'Face to Face',
-        notes: 'Excellent problem solving skills.',
-        parentName: 'Nadia Patel',
-        contactNumber: '+44 7700 900123',
-        address: '12 Oak Road, Kingston upon Thames, KT2 6LP',
+const envSeeds: Record<string, EnvSeedConfig> = {
+    dev: {
+        codePrefix: 'DEV',
+        noteTag: '[dev] sample record',
+        schools: ['Dev Sandbox Academy'],
+        town: 'Localhost',
+        phonePrefix: '+44 7000 0000',
+        baseFee: 100,
+        studentCount: 5,
+        sessionCount: 4,
+        names: [
+            ['Ava', 'Devlin'],
+            ['Sam', 'Bailey'],
+            ['Priya', 'Nair'],
+            ['Leo', 'Whitfield'],
+            ['Zara', 'Ahmed'],
+        ],
     },
-    {
-        id: 2,
-        studentId: 'STU-CL4Q8R',
-        firstName: 'Nimal',
-        lastName: 'Fernando',
-        dob: '2012-08-22',
-        subjects: ['Physics'],
-        school: 'St. Pauls School',
-        year: '9',
-        progress: 74,
-        mode: 'Online',
-        notes: 'Needs extra practice with experiments.',
-        parentName: 'Martin Foster',
-        contactNumber: '+44 7710 123456',
-        address: '23 Elm Grove, Wimbledon, SW19 7HQ',
+    test: {
+        codePrefix: 'TST',
+        noteTag: '[test] QA fixture',
+        schools: ['Riverside Test College', 'Stagingfield High'],
+        town: 'Stagingtown',
+        phonePrefix: '+44 7100 0000',
+        baseFee: 110,
+        studentCount: 10,
+        sessionCount: 6,
+        names: [
+            ['Oliver', 'Grant'],
+            ['Maya', 'Lindqvist'],
+            ['Noah', 'Abassi'],
+            ['Ella', 'Fontaine'],
+            ['Ravi', 'Kapoor'],
+            ['Sofia', 'Marino'],
+            ['Jack', 'Turner'],
+            ['Amara', 'Osei'],
+            ['Ben', 'Fletcher'],
+            ['Iris', 'Kovac'],
+        ],
     },
-    {
-        id: 3,
-        studentId: 'STU-KV9P1T',
-        firstName: 'Kavindi',
-        lastName: 'Silva',
-        dob: '2013-01-11',
-        subjects: ['English'],
-        school: 'Epsom College',
-        year: '8',
-        progress: 82,
-        mode: 'Face to Face',
-        notes: 'Strong writing and reading confidence.',
-        parentName: 'Helen Clarke',
-        contactNumber: '+44 7720 456789',
-        address: '5 Willow Lane, Guildford, GU1 2AB',
+    prod: {
+        codePrefix: 'STU',
+        noteTag: 'Progressing well.',
+        schools: [
+            'Kingston Grammar School',
+            'St. Pauls School',
+            'Epsom College',
+            'Harrow School',
+            'Wycombe Abbey',
+        ],
+        town: 'Guildford',
+        phonePrefix: '+44 7700 9000',
+        baseFee: 120,
+        studentCount: 15,
+        sessionCount: 8,
+        names: [
+            ['Asha', 'Perera'],
+            ['Nimal', 'Fernando'],
+            ['Kavindi', 'Silva'],
+            ['Dilan', 'Jayawardena'],
+            ['Rashmi', 'Weerasinghe'],
+            ['Chaminda', 'Ratnayake'],
+            ['Tharushi', 'Kumari'],
+            ['Sanjaya', 'Bandara'],
+            ['Mihiri', 'Gunasekara'],
+            ['Kasun', 'Mendis'],
+            ['Ishara', 'Dias'],
+            ['Malith', 'Rajapaksa'],
+            ['Nethmi', 'Wijesinghe'],
+            ['Roshan', 'Alwis'],
+            ['Dinuka', 'Senanayake'],
+        ],
     },
-    {
-        id: 4,
-        studentId: 'STU-DJ2L6N',
-        firstName: 'Dilan',
-        lastName: 'Jayawardena',
-        dob: '2010-11-03',
-        subjects: ['Chemistry'],
-        school: 'Harrow School',
-        year: '11',
-        progress: 70,
-        mode: 'Online',
-        notes: 'Needs more consistent revision habits.',
-        parentName: 'David Hughes',
-        contactNumber: '+44 7730 987654',
-        address: '88 High Street, Harrow, HA1 4DX',
-    },
-    {
-        id: 5,
-        studentId: 'STU-RP8N4W',
-        firstName: 'Rashmi',
-        lastName: 'Weerasinghe',
-        dob: '2011-09-16',
-        subjects: ['Biology', 'Chemistry'],
-        school: 'Wycombe Abbey',
-        year: '10',
-        progress: 86,
-        mode: 'Face to Face',
-        notes: 'Very attentive during lab sessions.',
-        parentName: 'Laura Bennett',
-        contactNumber: '+44 7740 111222',
-        address: '14 Lake View, Buckingham, MK18 1PT',
-    },
-    {
-        id: 6,
-        studentId: 'STU-MT5V2Q',
-        firstName: 'Chaminda',
-        lastName: 'Ratnayake',
-        dob: '2012-03-09',
-        subjects: ['Mathematics'],
-        school: 'The Perse School',
-        year: '9',
-        progress: 78,
-        mode: 'Online',
-        notes: 'Improving steadily with guided practice.',
-        parentName: 'James Carter',
-        contactNumber: '+44 7750 333444',
-        address: '40 Station Road, Cambridge, CB1 3EN',
-    },
-    {
-        id: 7,
-        studentId: 'STU-LZ3K7C',
-        firstName: 'Tharushi',
-        lastName: 'Kumari',
-        dob: '2013-07-28',
-        subjects: ['History', 'English'],
-        school: 'RGS Guildford',
-        year: '8',
-        progress: 84,
-        mode: 'Face to Face',
-        notes: 'Excellent participation in class discussions.',
-        parentName: 'Sophie Turner',
-        contactNumber: '+44 7760 555666',
-        address: '7 Flower Road, Guildford, GU2 4RT',
-    },
-    {
-        id: 8,
-        studentId: 'STU-QP1J9F',
-        firstName: 'Sanjaya',
-        lastName: 'Bandara',
-        dob: '2010-12-01',
-        subjects: ['Physics', 'Mathematics'],
-        school: 'Benenden School',
-        year: '11',
-        progress: 72,
-        mode: 'Online',
-        notes: 'Needs occasional reminders to complete homework.',
-        parentName: 'Richard Mason',
-        contactNumber: '+44 7770 777888',
-        address: '19 Park Road, Tunbridge Wells, TN1 2LP',
-    },
-    {
-        id: 9,
-        studentId: 'STU-WY6H3N',
-        firstName: 'Mihiri',
-        lastName: 'Gunasekara',
-        dob: '2011-01-20',
-        subjects: ['English'],
-        school: 'Cheltenham Ladies College',
-        year: '10',
-        progress: 89,
-        mode: 'Face to Face',
-        notes: 'Confident speaker and thoughtful writer.',
-        parentName: 'Claire Evans',
-        contactNumber: '+44 7780 999000',
-        address: '3 Church Lane, Cheltenham, GL50 3JW',
-    },
-    {
-        id: 10,
-        studentId: 'STU-TN4B8K',
-        firstName: 'Kasun',
-        lastName: 'Mendis',
-        dob: '2012-06-17',
-        subjects: ['Chemistry', 'Biology'],
-        school: 'Wellington College',
-        year: '9',
-        progress: 76,
-        mode: 'Online',
-        notes: 'Shows strong curiosity in practical work.',
-        parentName: 'Timothy Reed',
-        contactNumber: '+44 7790 123789',
-        address: '55 High Level Road, Crowthorne, RG45 6ZZ',
-    },
-]
-
-/** Per-environment student datasets, keyed by the ENVIRONMENT app setting. */
-export const studentsByEnv: Record<string, Student[]> = {
-    dev: devStudents,
-    test: testStudents,
-    prod: prodStudents,
 }
 
 /** Dataset used when ENVIRONMENT is unset or unrecognised (local dev). */
 export const defaultEnv = 'dev'
+
+/** Environments that have a seed dataset. */
+export const seededEnvironments = Object.keys(envSeeds)
+
+const buildStudents = (config: EnvSeedConfig): Student[] =>
+    config.names.slice(0, config.studentCount).map(([firstName, lastName], i) => {
+        const mode: StudentMode = i % 2 === 0 ? 'Face to Face' : 'Online'
+        return {
+            id: i + 1,
+            studentId: `${config.codePrefix}-${String(i + 1).padStart(4, '0')}`,
+            firstName,
+            lastName,
+            dob: `${2010 + (i % 4)}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 27) + 1).padStart(2, '0')}`,
+            subjects: subjectRotation[i % subjectRotation.length],
+            school: config.schools[i % config.schools.length],
+            year: yearRotation[i % yearRotation.length],
+            progress: 55 + ((i * 7) % 41),
+            mode,
+            fees: config.baseFee + (i % 4) * 15,
+            notes: config.noteTag,
+            parentName: `${parentFirstNames[i % parentFirstNames.length]} ${lastName}`,
+            contactNumber: `${config.phonePrefix}${String(i + 1).padStart(2, '0')}`,
+            address: `${i + 1} Sample Street, ${config.town}`,
+        }
+    })
+
+const sessionNotes = [
+    'Problem solving practice',
+    'Lab preparation',
+    'Reading and writing review',
+    'Revision session',
+    'Past paper walkthrough',
+    'Coursework feedback',
+    'Exam technique',
+    'Catch-up session',
+]
+
+const sessionTimes = ['09:30', '11:00', '14:00', '16:00', '17:30']
+
+/**
+ * Builds scheduled classes for the given students. Dates are relative to today
+ * so the dashboard's "upcoming sessions" list is always populated.
+ */
+const buildSessions = (
+    students: Student[],
+    sessionCount: number
+): ScheduledSession[] => {
+    const today = new Date()
+    return students.slice(0, sessionCount).map((student, i) => {
+        const date = new Date(today)
+        date.setDate(date.getDate() + i + 1)
+        return {
+            id: 100 + i + 1,
+            studentId: student.id,
+            studentName: `${student.firstName} ${student.lastName}`,
+            year: student.year,
+            subject: student.subjects[0],
+            date: date.toISOString().slice(0, 10),
+            time: sessionTimes[i % sessionTimes.length],
+            notes: sessionNotes[i % sessionNotes.length],
+        }
+    })
+}
 
 const paymentStatusNotes: Record<PaymentStatus, string> = {
     Paid: 'Received in full',
@@ -335,8 +203,9 @@ const paymentStatusNotes: Record<PaymentStatus, string> = {
 }
 
 /**
- * Builds twelve monthly payment records per student for the given year,
- * using a deterministic pattern so seeded data is stable across restarts.
+ * Builds twelve monthly payment records per student for the given year, using
+ * each student's agreed `fees` as the monthly amount. Deterministic so seeded
+ * data is stable across restarts.
  */
 export const buildSeedPayments = (
     students: Student[],
@@ -349,7 +218,7 @@ export const buildSeedPayments = (
 
     return students.flatMap((student) =>
         months.map((month, monthIndex) => {
-            const monthlyFee = 120 + (student.id % 4) * 10
+            const monthlyFee = student.fees
             const pattern = (student.id + monthIndex) % 3
             const status: PaymentStatus =
                 pattern === 0 ? 'Paid' : pattern === 1 ? 'Partial' : 'Pending'
@@ -372,4 +241,13 @@ export const buildSeedPayments = (
             }
         })
     )
+}
+
+/** Builds the full dataset (students + sessions) for one environment. */
+export const buildSeedForEnv = (
+    env: string
+): { students: Student[]; sessions: ScheduledSession[] } => {
+    const config = envSeeds[env] ?? envSeeds[defaultEnv]
+    const students = buildStudents(config)
+    return { students, sessions: buildSessions(students, config.sessionCount) }
 }

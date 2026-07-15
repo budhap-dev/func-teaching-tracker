@@ -45,6 +45,7 @@ export const upsertStudent = (input: StudentInput): UpsertResult => {
         year: input.year ?? '',
         progress: input.progress ?? 0,
         mode: normalizeMode(input.mode),
+        fees: input.fees ?? 0,
         notes: input.notes ?? '',
         parentName: input.parentName ?? '',
         contactNumber: input.contactNumber ?? '',
@@ -77,6 +78,12 @@ export const validateStudentInput = (
             input.progress > 100)
     ) {
         return 'progress must be a number between 0 and 100.'
+    }
+    if (
+        input.fees !== undefined &&
+        (typeof input.fees !== 'number' || input.fees < 0)
+    ) {
+        return 'fees must be a non-negative number.'
     }
     return undefined
 }

@@ -1,10 +1,11 @@
 import { Student } from '../models/student'
 import { PaymentRecord } from '../models/payment'
-import { buildSeedPayments, defaultEnv, studentsByEnv } from './seed'
+import { ScheduledSession } from '../models/session'
+import { buildSeedForEnv, buildSeedPayments, defaultEnv, seededEnvironments } from './seed'
 
 /** The active environment, from the ENVIRONMENT app setting (dev/test/prod). */
 export const environmentName: string =
-    process.env.ENVIRONMENT && process.env.ENVIRONMENT in studentsByEnv
+    process.env.ENVIRONMENT && seededEnvironments.includes(process.env.ENVIRONMENT)
         ? process.env.ENVIRONMENT
         : defaultEnv
 
@@ -21,14 +22,15 @@ export const environmentName: string =
 class InMemoryStore {
     students: Student[]
     payments: PaymentRecord[]
+    sessions: ScheduledSession[]
 
     constructor() {
         // Fix the payment year rather than reading the clock so seed data is
         // deterministic across restarts.
         const seedYear = 2026
-        this.students = studentsByEnv[environmentName].map((student) => ({
-            ...student,
-        }))
+        const seed = buildSeedForEnv(environmentName)
+        this.students = seed.students
+        this.sessions = seed.sessions
         this.payments = buildSeedPayments(this.students, seedYear)
     }
 
@@ -40,6 +42,11 @@ class InMemoryStore {
     /** Returns the next available numeric payment id. */
     nextPaymentId(): number {
         return this.payments.reduce((max, p) => Math.max(max, p.id), 0) + 1
+    }
+
+    /** Returns the next available numeric session id. */
+    nextSessionId(): number {
+        return this.sessions.reduce((max, s) => Math.max(max, s.id), 0) + 1
     }
 }
 

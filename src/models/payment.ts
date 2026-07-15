@@ -32,3 +32,12 @@ export interface PaymentQuery {
     month?: string
     status?: PaymentStatus
 }
+
+/** Payment records for one month, with totals — returned by /payments/by-month. */
+export interface MonthlyPaymentGroup {
+    month: string
+    totalExpected: number
+    totalReceived: number
+    totalOutstanding: number
+    records: PaymentRecord[]
+}

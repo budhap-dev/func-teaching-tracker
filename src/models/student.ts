@@ -12,6 +12,8 @@ export interface Student {
     year: string
     progress: number
     mode: StudentMode
+    /** Agreed monthly tuition fee for this student, in GBP. */
+    fees: number
     notes: string
     parentName: string
     contactNumber: string
