@@ -12,6 +12,7 @@ module "app" {
   node_version           = each.value.node_version
   instance_memory_in_mb  = each.value.instance_memory_in_mb
   maximum_instance_count = each.value.maximum_instance_count
+  cors_allowed_origins   = each.value.cors_allowed_origins
   tags                   = merge(var.tags, { environment = each.key })
 }
 

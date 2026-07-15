@@ -9,14 +9,19 @@ environments = {
   dev = {
     location     = "eastus"
     node_version = "24"
+    # After the frontend Static Web Apps exist, set each env's allowed origin
+    # to its paired SWA URL (from the frontend `static_web_app_urls` output):
+    # cors_allowed_origins = ["https://swa-teachtracker-dev.azurestaticapps.net"]
   }
   test = {
     location     = "eastus"
     node_version = "24"
+    # cors_allowed_origins = ["https://swa-teachtracker-test.azurestaticapps.net"]
   }
   prod = {
     location               = "eastus"
     node_version           = "24"
     maximum_instance_count = 100
+    # cors_allowed_origins = ["https://swa-teachtracker-prod.azurestaticapps.net"]
   }
 }

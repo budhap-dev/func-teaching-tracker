@@ -30,6 +30,7 @@ variable "environments" {
     node_version           = string
     instance_memory_in_mb  = optional(number, 2048)
     maximum_instance_count = optional(number, 40)
+    cors_allowed_origins   = optional(list(string), [])
   }))
   default = {
     dev = {
