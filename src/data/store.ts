@@ -1,13 +1,22 @@
 import { Student } from '../models/student'
-import { PaymentRecord } from '../models/payment'
+import { PaymentSettlement } from '../models/payment'
 import { ScheduledSession } from '../models/session'
-import { buildSeedForEnv, buildSeedPayments, defaultEnv, seededEnvironments } from './seed'
+import {
+    buildSeedForEnv,
+    defaultEnv,
+    seededEnvironments,
+    seedYear,
+} from './seed'
 
 /** The active environment, from the ENVIRONMENT app setting (dev/test/prod). */
 export const environmentName: string =
-    process.env.ENVIRONMENT && seededEnvironments.includes(process.env.ENVIRONMENT)
+    process.env.ENVIRONMENT &&
+    seededEnvironments.includes(process.env.ENVIRONMENT)
         ? process.env.ENVIRONMENT
         : defaultEnv
+
+/** The year the seeded timetable covers, and therefore the billable months. */
+export const billingYear = seedYear
 
 /**
  * A simple in-memory data store seeded with per-environment sample data.
@@ -18,30 +27,26 @@ export const environmentName: string =
  * exists so the API is runnable out of the box; swap this module for a real
  * repository (Cosmos DB, SQL, Table Storage) without touching the services or
  * functions that depend on it.
+ *
+ * Note what is *not* here: what a student owes. That is derived from the classes
+ * that took place, never stored, so it cannot drift out of step with the
+ * timetable. Only what the teacher recorded — `settlements` — is kept.
  */
 class InMemoryStore {
     students: Student[]
-    payments: PaymentRecord[]
     sessions: ScheduledSession[]
+    settlements: PaymentSettlement[]
 
     constructor() {
-        // Fix the payment year rather than reading the clock so seed data is
-        // deterministic across restarts.
-        const seedYear = 2026
         const seed = buildSeedForEnv(environmentName)
         this.students = seed.students
         this.sessions = seed.sessions
-        this.payments = buildSeedPayments(this.students, seedYear)
+        this.settlements = []
     }
 
     /** Returns the next available numeric student id. */
     nextStudentId(): number {
         return this.students.reduce((max, s) => Math.max(max, s.id), 0) + 1
-    }
-
-    /** Returns the next available numeric payment id. */
-    nextPaymentId(): number {
-        return this.payments.reduce((max, p) => Math.max(max, p.id), 0) + 1
     }
 
     /** Returns the next available numeric session id. */

@@ -1,5 +1,4 @@
 import { Student, StudentMode } from '../models/student'
-import { PaymentRecord, PaymentStatus } from '../models/payment'
 import { ScheduledSession, SessionStatus } from '../models/session'
 
 // Each environment serves a distinct dataset — different people and a
@@ -19,8 +18,8 @@ interface EnvSeedConfig {
     baseFee: number
     /** How many students this environment serves. */
     studentCount: number
-    /** How many scheduled classes this environment serves. */
-    sessionCount: number
+    /** Every Nth class per student is seeded Cancelled. */
+    cancelEvery: number
     names: [string, string][]
 }
 
@@ -64,7 +63,7 @@ const envSeeds: Record<string, EnvSeedConfig> = {
         phonePrefix: '+44 7000 0000',
         baseFee: 100,
         studentCount: 5,
-        sessionCount: 4,
+        cancelEvery: 9,
         names: [
             ['Ava', 'Devlin'],
             ['Sam', 'Bailey'],
@@ -81,7 +80,7 @@ const envSeeds: Record<string, EnvSeedConfig> = {
         phonePrefix: '+44 7100 0000',
         baseFee: 110,
         studentCount: 10,
-        sessionCount: 6,
+        cancelEvery: 7,
         names: [
             ['Oliver', 'Grant'],
             ['Maya', 'Lindqvist'],
@@ -109,7 +108,7 @@ const envSeeds: Record<string, EnvSeedConfig> = {
         phonePrefix: '+44 7700 9000',
         baseFee: 120,
         studentCount: 15,
-        sessionCount: 8,
+        cancelEvery: 11,
         names: [
             ['Asha', 'Perera'],
             ['Nimal', 'Fernando'],
@@ -172,87 +171,62 @@ const sessionNotes = [
 const sessionTimes = ['09:30', '11:00', '14:00', '16:00', '17:30']
 
 /**
- * Builds scheduled classes for the given students. Dates are relative to today
- * so the dashboard's "upcoming sessions" list is always populated.
+ * Builds a year of classes: each student has a weekly slot, on their own
+ * weekday and time, running through the seed year.
  *
- * Every third class is seeded Cancelled so the state is visible without having
- * to cancel one by hand.
+ * Recurring rather than a handful of one-offs because billing is per session —
+ * with only a few classes near today, almost every month would bill nothing.
+ * Every Nth class is cancelled so the state is visible without creating one.
  */
 const buildSessions = (
     students: Student[],
-    sessionCount: number
-): ScheduledSession[] => {
-    const today = new Date()
-    return students.slice(0, sessionCount).map((student, i) => {
-        const date = new Date(today)
-        date.setDate(date.getDate() + i + 1)
-        const status: SessionStatus = i % 3 === 2 ? 'Cancelled' : 'Scheduled'
-        return {
-            id: 100 + i + 1,
-            studentId: student.id,
-            studentName: `${student.firstName} ${student.lastName}`,
-            year: student.year,
-            subject: student.subjects[0],
-            date: date.toISOString().slice(0, 10),
-            time: sessionTimes[i % sessionTimes.length],
-            notes: sessionNotes[i % sessionNotes.length],
-            status,
-        }
-    })
-}
-
-const paymentStatusNotes: Record<PaymentStatus, string> = {
-    Paid: 'Received in full',
-    Partial: 'Partial payment received',
-    Pending: 'Awaiting payment',
-}
-
-/**
- * Builds twelve monthly payment records per student for the given year, using
- * each student's agreed `fees` as the monthly amount. Deterministic so seeded
- * data is stable across restarts.
- */
-export const buildSeedPayments = (
-    students: Student[],
+    config: EnvSeedConfig,
     year: number
-): PaymentRecord[] => {
-    const months = Array.from(
-        { length: 12 },
-        (_, monthIndex) => `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-    )
+): ScheduledSession[] =>
+    students.flatMap((student, studentIndex) => {
+        // Each student keeps the same weekday (Mon–Fri) and time every week.
+        const weekday = (studentIndex % 5) + 1
+        const time = sessionTimes[studentIndex % sessionTimes.length]
 
-    return students.flatMap((student) =>
-        months.map((month, monthIndex) => {
-            const monthlyFee = student.fees
-            const pattern = (student.id + monthIndex) % 3
-            const status: PaymentStatus =
-                pattern === 0 ? 'Paid' : pattern === 1 ? 'Partial' : 'Pending'
-            const amountPaid =
-                status === 'Paid'
-                    ? monthlyFee
-                    : status === 'Partial'
-                      ? Math.round(monthlyFee * 0.5)
-                      : 0
+        // First occurrence of that weekday in January.
+        const first = new Date(Date.UTC(year, 0, 1))
+        while (first.getUTCDay() !== weekday) {
+            first.setUTCDate(first.getUTCDate() + 1)
+        }
 
-            return {
-                id: student.id * 100 + monthIndex,
+        const sessions: ScheduledSession[] = []
+        const cursor = new Date(first)
+        let week = 0
+        while (cursor.getUTCFullYear() === year) {
+            const status: SessionStatus =
+                week > 0 && week % config.cancelEvery === 0
+                    ? 'Cancelled'
+                    : 'Scheduled'
+            sessions.push({
+                id: student.id * 1000 + week,
                 studentId: student.id,
                 studentName: `${student.firstName} ${student.lastName}`,
-                month,
-                monthlyFee,
-                amountPaid,
+                year: student.year,
+                subject: student.subjects[week % student.subjects.length],
+                date: cursor.toISOString().slice(0, 10),
+                time,
+                notes: sessionNotes[week % sessionNotes.length],
                 status,
-                notes: paymentStatusNotes[status],
-            }
-        })
-    )
-}
+            })
+            cursor.setUTCDate(cursor.getUTCDate() + 7)
+            week += 1
+        }
+        return sessions
+    })
 
-/** Builds the full dataset (students + sessions) for one environment. */
+/** The year the seed timetable covers. */
+export const seedYear = 2026
+
+/** Builds the full dataset (students + a year of classes) for one environment. */
 export const buildSeedForEnv = (
     env: string
 ): { students: Student[]; sessions: ScheduledSession[] } => {
     const config = envSeeds[env] ?? envSeeds[defaultEnv]
     const students = buildStudents(config)
-    return { students, sessions: buildSessions(students, config.sessionCount) }
+    return { students, sessions: buildSessions(students, config, seedYear) }
 }
