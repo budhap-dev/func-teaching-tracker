@@ -1,6 +1,6 @@
 import { Student, StudentMode } from '../models/student'
 import { PaymentRecord, PaymentStatus } from '../models/payment'
-import { ScheduledSession } from '../models/session'
+import { ScheduledSession, SessionStatus } from '../models/session'
 
 // Each environment serves a distinct dataset — different people and a
 // different volume — so dev/test/prod are easy to tell apart in the UI.
@@ -174,6 +174,9 @@ const sessionTimes = ['09:30', '11:00', '14:00', '16:00', '17:30']
 /**
  * Builds scheduled classes for the given students. Dates are relative to today
  * so the dashboard's "upcoming sessions" list is always populated.
+ *
+ * Every third class is seeded Cancelled so the state is visible without having
+ * to cancel one by hand.
  */
 const buildSessions = (
     students: Student[],
@@ -183,6 +186,7 @@ const buildSessions = (
     return students.slice(0, sessionCount).map((student, i) => {
         const date = new Date(today)
         date.setDate(date.getDate() + i + 1)
+        const status: SessionStatus = i % 3 === 2 ? 'Cancelled' : 'Scheduled'
         return {
             id: 100 + i + 1,
             studentId: student.id,
@@ -192,6 +196,7 @@ const buildSessions = (
             date: date.toISOString().slice(0, 10),
             time: sessionTimes[i % sessionTimes.length],
             notes: sessionNotes[i % sessionNotes.length],
+            status,
         }
     })
 }
