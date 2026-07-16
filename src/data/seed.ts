@@ -115,7 +115,10 @@ export const seededEnvironments = Object.keys(envSeeds)
 
 const buildStudents = (config: EnvSeedConfig): Student[] =>
     config.names.slice(0, config.studentCount).map(([firstName, lastName], i) => {
-        const mode: StudentMode = i % 2 === 0 ? 'Face to Face' : 'Online'
+        // Every third student learns both ways, so the mode is visible in
+        // every environment without hand-editing a record.
+        const mode: StudentMode =
+            i % 3 === 2 ? 'Both' : i % 2 === 0 ? 'Face to Face' : 'Online'
         return {
             id: i + 1,
             studentId: `${config.codePrefix}-${String(i + 1).padStart(4, '0')}`,
@@ -188,6 +191,8 @@ const buildSessions = (
                 subject: student.subjects[week % student.subjects.length],
                 date: cursor.toISOString().slice(0, 10),
                 time,
+                // Stable per student, so a student's classes read consistently.
+                durationMinutes: [60, 90, 60, 120, 30][studentIndex % 5],
                 notes: sessionNotes[week % sessionNotes.length],
                 status,
             })

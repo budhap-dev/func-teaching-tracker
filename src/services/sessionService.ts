@@ -4,6 +4,7 @@ import {
     SessionInput,
     sessionStatuses,
     SessionUpdate,
+    validDurations,
 } from '../models/session'
 import { getStudentById } from './studentService'
 
@@ -30,6 +31,8 @@ export const createSession = (input: SessionInput): ScheduledSession => {
         subject: input.subject,
         date: input.date,
         time: input.time,
+        // Older clients omit it: an hour is the house default.
+        durationMinutes: input.durationMinutes ?? 60,
         notes: input.notes ?? '',
         status: 'Scheduled',
     }
@@ -71,11 +74,16 @@ export const updateSession = (
     if (update.subject !== undefined) session.subject = update.subject
     if (update.date !== undefined) session.date = update.date
     if (update.time !== undefined) session.time = update.time
+    if (update.durationMinutes !== undefined)
+        session.durationMinutes = update.durationMinutes
     if (update.notes !== undefined) session.notes = update.notes
     if (update.status !== undefined) session.status = update.status
 
     return session
 }
+
+const isValidDuration = (value: number): boolean =>
+    (validDurations as readonly number[]).includes(value)
 
 const editableKeys: (keyof SessionUpdate)[] = [
     'studentId',
@@ -84,6 +92,7 @@ const editableKeys: (keyof SessionUpdate)[] = [
     'subject',
     'date',
     'time',
+    'durationMinutes',
     'notes',
     'status',
 ]
@@ -113,6 +122,12 @@ export const validateSessionUpdate = (
     if (update.time !== undefined && !/^\d{2}:\d{2}$/.test(update.time)) {
         return 'time must be in HH:MM format.'
     }
+    if (
+        update.durationMinutes !== undefined &&
+        !isValidDuration(update.durationMinutes)
+    ) {
+        return `durationMinutes must be one of: ${validDurations.join(', ')}.`
+    }
     return undefined
 }
 
@@ -134,6 +149,12 @@ export const validateSessionInput = (
     }
     if (!input.time || !/^\d{2}:\d{2}$/.test(input.time)) {
         return 'time is required and must be in HH:MM format.'
+    }
+    if (
+        input.durationMinutes !== undefined &&
+        !isValidDuration(input.durationMinutes)
+    ) {
+        return `durationMinutes must be one of: ${validDurations.join(', ')}.`
     }
     return undefined
 }

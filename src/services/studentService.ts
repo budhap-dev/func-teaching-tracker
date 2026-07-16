@@ -6,7 +6,7 @@ import {
     StudentMode,
 } from '../models/student'
 
-const validModes: StudentMode[] = ['Online', 'Face to Face']
+const validModes: StudentMode[] = ['Online', 'Face to Face', 'Both']
 
 /** Returns all students. */
 export const listStudents = (): Student[] => store.students
