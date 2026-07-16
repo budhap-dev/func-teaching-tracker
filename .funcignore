@@ -1,11 +1,11 @@
 .git*
 .vscode
 local.settings.json
-test
+/test
 tsconfig.json
-src
+/src
 .gitignore
 .funcignore
 README.md
-infra
-.github
+/infra
+/.github
