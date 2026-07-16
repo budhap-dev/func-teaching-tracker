@@ -1,4 +1,4 @@
-export type StudentMode = 'Online' | 'Face to Face'
+export type StudentMode = 'Online' | 'Face to Face' | 'Both'
 
 /** A tutored student. Mirrors the shape used by the Teaching Tracker frontend. */
 export interface Student {

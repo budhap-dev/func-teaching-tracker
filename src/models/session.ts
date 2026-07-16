@@ -9,6 +9,9 @@ export type SessionStatus = 'Scheduled' | 'Cancelled'
 
 export const sessionStatuses: SessionStatus[] = ['Scheduled', 'Cancelled']
 
+/** How long a class runs, in minutes. */
+export const validDurations = [30, 60, 90, 120] as const
+
 /** A scheduled class for a student. */
 export interface ScheduledSession {
     id: number
@@ -20,6 +23,8 @@ export interface ScheduledSession {
     date: string
     /** 24h time, HH:MM. */
     time: string
+    /** Length of the class in minutes (30 / 60 / 90 / 120). */
+    durationMinutes: number
     notes: string
     status: SessionStatus
 }
@@ -32,6 +37,7 @@ export interface SessionInput {
     subject: string
     date: string
     time: string
+    durationMinutes?: number
     notes?: string
 }
 
@@ -47,6 +53,7 @@ export interface SessionUpdate {
     subject?: string
     date?: string
     time?: string
+    durationMinutes?: number
     notes?: string
     status?: SessionStatus
 }
