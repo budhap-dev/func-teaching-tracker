@@ -20,3 +20,7 @@ environments = {
     # cors_allowed_origins = ["https://swa-teachtracker-prod.azurestaticapps.net"]
   }
 }
+
+# REQ-004: the teacher allow-list. Seeds the Key Vault secret 'teacher-emails'
+# per environment; add/remove teachers later by editing the secret directly.
+# teacher_emails = ["teacher@example.com"]

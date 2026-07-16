@@ -13,3 +13,8 @@ output "function_app_name" {
 output "function_app_default_hostname" {
   value = azurerm_function_app_flex_consumption.this.default_hostname
 }
+
+output "principal_id" {
+  description = "Object ID of the app's system-assigned managed identity."
+  value       = azurerm_function_app_flex_consumption.this.identity[0].principal_id
+}

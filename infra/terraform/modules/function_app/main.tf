@@ -81,6 +81,11 @@ resource "azurerm_function_app_flex_consumption" "this" {
   maximum_instance_count = var.maximum_instance_count
   instance_memory_in_mb  = var.instance_memory_in_mb
 
+  # Lets the app read Key Vault (and later, the database) with no stored keys.
+  identity {
+    type = "SystemAssigned"
+  }
+
   site_config {
     application_insights_connection_string = azurerm_application_insights.this.connection_string
 
@@ -95,10 +100,13 @@ resource "azurerm_function_app_flex_consumption" "this" {
     }
   }
 
-  app_settings = {
-    AzureWebJobsFeatureFlags = "EnableWorkerIndexing"
-    ENVIRONMENT              = var.env
-  }
+  app_settings = merge(
+    {
+      AzureWebJobsFeatureFlags = "EnableWorkerIndexing"
+      ENVIRONMENT              = var.env
+    },
+    var.extra_app_settings,
+  )
 
   tags = var.tags
 }
