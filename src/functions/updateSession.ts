@@ -5,15 +5,13 @@ import {
     InvocationContext,
 } from '@azure/functions'
 import { SessionUpdate } from '../models/session'
-import {
-    updateSessionStatus,
-    validateSessionUpdate,
-} from '../services/sessionService'
+import { updateSession, validateSessionUpdate } from '../services/sessionService'
 import { badRequest, notFound, ok, parseJsonBody } from '../shared/http'
 
 /**
- * PUT /api/sessions/{id} — cancels or un-cancels a class.
- * Body: `{ "status": "Cancelled" }` or `{ "status": "Scheduled" }`.
+ * PUT /api/sessions/{id} — edits a class and/or cancels/restores it.
+ * Body is any subset of the class fields, e.g. `{ "status": "Cancelled" }` to
+ * cancel, or `{ "subject": "Physics", "time": "17:00" }` to edit.
  */
 export async function updateSessionHandler(
     request: HttpRequest,
@@ -30,12 +28,12 @@ export async function updateSessionHandler(
         return badRequest(error ?? 'Invalid request body.')
     }
 
-    const session = updateSessionStatus(id, body)
+    const session = updateSession(id, body)
     if (!session) {
         return notFound(`Session ${id} not found.`)
     }
 
-    context.log(`Session ${id} is now ${session.status}`)
+    context.log(`Session ${id} updated`)
     return ok(session)
 }
 

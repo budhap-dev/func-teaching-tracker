@@ -35,9 +35,20 @@ export interface SessionInput {
     notes?: string
 }
 
-/** Payload accepted by the update-session endpoint. */
+/**
+ * Payload accepted by the update-session endpoint. Every field is optional: a
+ * request may cancel/restore a class (`status`), edit its details, or both.
+ * At least one field must be present.
+ */
 export interface SessionUpdate {
-    status: SessionStatus
+    studentId?: number
+    studentName?: string
+    year?: string
+    subject?: string
+    date?: string
+    time?: string
+    notes?: string
+    status?: SessionStatus
 }
 
 /**

@@ -42,10 +42,13 @@ export const getSessionById = (id: number): ScheduledSession | undefined =>
     store.sessions.find((session) => session.id === id)
 
 /**
- * Cancels or un-cancels a class. Cancelling never deletes the record — the
- * class stays visible, marked, so there is still a note of what was planned.
+ * Applies a partial update to a class: its details, its status, or both. Only
+ * the fields present in `update` change. Cancelling (status) never deletes the
+ * record — the class stays visible, marked, so there is still a note of what
+ * was planned. Changing the student refreshes the denormalised name/year from
+ * the roster unless the caller supplied its own.
  */
-export const updateSessionStatus = (
+export const updateSession = (
     id: number,
     update: SessionUpdate
 ): ScheduledSession | undefined => {
@@ -53,19 +56,62 @@ export const updateSessionStatus = (
     if (!session) {
         return undefined
     }
-    session.status = update.status
+
+    if (update.studentId !== undefined) {
+        session.studentId = update.studentId
+        const student = getStudentById(update.studentId)
+        session.studentName =
+            update.studentName ??
+            (student ? `${student.firstName} ${student.lastName}` : session.studentName)
+        session.year = update.year ?? student?.year ?? session.year
+    } else {
+        if (update.studentName !== undefined) session.studentName = update.studentName
+        if (update.year !== undefined) session.year = update.year
+    }
+    if (update.subject !== undefined) session.subject = update.subject
+    if (update.date !== undefined) session.date = update.date
+    if (update.time !== undefined) session.time = update.time
+    if (update.notes !== undefined) session.notes = update.notes
+    if (update.status !== undefined) session.status = update.status
+
     return session
 }
 
-/** Validates a raw status update, returning an error string when invalid. */
+const editableKeys: (keyof SessionUpdate)[] = [
+    'studentId',
+    'studentName',
+    'year',
+    'subject',
+    'date',
+    'time',
+    'notes',
+    'status',
+]
+
+/** Validates a raw update, returning an error string when invalid. */
 export const validateSessionUpdate = (
     update: Partial<SessionUpdate> | undefined
 ): string | undefined => {
     if (!update || typeof update !== 'object') {
         return 'Request body must be a session update object.'
     }
-    if (!update.status || !sessionStatuses.includes(update.status)) {
-        return `status is required and must be one of: ${sessionStatuses.join(', ')}.`
+    if (!editableKeys.some((key) => update[key] !== undefined)) {
+        return `At least one updatable field is required: ${editableKeys.join(', ')}.`
+    }
+    if (update.status !== undefined && !sessionStatuses.includes(update.status)) {
+        return `status must be one of: ${sessionStatuses.join(', ')}.`
+    }
+    if (update.studentId !== undefined && typeof update.studentId !== 'number') {
+        return 'studentId must be a number.'
+    }
+    if (update.subject !== undefined && !update.subject.trim()) {
+        return 'subject must not be empty.'
+    }
+    if (update.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(update.date)) {
+        return 'date must be in YYYY-MM-DD format.'
+    }
+    if (update.time !== undefined && !/^\d{2}:\d{2}$/.test(update.time)) {
+        return 'time must be in HH:MM format.'
     }
     return undefined
 }
