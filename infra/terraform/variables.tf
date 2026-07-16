@@ -55,3 +55,8 @@ variable "tags" {
     managedBy = "terraform"
   }
 }
+
+variable "teacher_emails" {
+  description = "Emails allowed to act as the teacher (REQ-004). Seeds the per-env Key Vault secret 'teacher-emails'; edit the secret in the portal afterwards — changes here are ignored once the secret exists."
+  type        = list(string)
+}

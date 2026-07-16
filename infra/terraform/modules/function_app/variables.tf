@@ -36,6 +36,12 @@ variable "cors_allowed_origins" {
   default     = []
 }
 
+variable "extra_app_settings" {
+  description = "Additional app settings merged over the baseline (e.g. auth config from the teacher_auth module)."
+  type        = map(string)
+  default     = {}
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)
