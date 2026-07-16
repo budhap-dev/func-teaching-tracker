@@ -1,6 +1,6 @@
 # Infrastructure — Azure Functions (Terraform)
 
-Provisions **three isolated environments** (`dev`, `test`, `prod`) plus the CI/CD
+Provisions **two isolated environments** (`dev`, `prod`) plus the CI/CD
 identities for the Teaching Tracker API. Each environment gets its own:
 
 - Resource group, Storage account (+ deployment container)
@@ -63,7 +63,7 @@ Environments → prod) so prod deploys wait for approval, and push to `main`.
   doesn't offer it yet, set `22` or `20` for that env in `terraform.tfvars`.
 - **Environment names are the contract**: the `environments` map keys must match the
   GitHub Environment names referenced in `.github/workflows/deploy.yml` (`dev`,
-  `test`, `prod`) and the federated-credential subjects.
+  `prod`) and the federated-credential subjects.
 - **Regions/scale per env**: tune `location`, `maximum_instance_count`, and
   `instance_memory_in_mb` per environment in the `environments` map.
 - **Teardown**: `terraform destroy` removes all resources for every environment.

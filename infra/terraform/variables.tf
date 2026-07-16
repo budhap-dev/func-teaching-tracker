@@ -24,7 +24,7 @@ variable "github_repo" {
 # One Function App + one OIDC identity is provisioned per entry in this map.
 # The keys must match the GitHub Environment names used in the deploy workflow.
 variable "environments" {
-  description = "Per-environment configuration (keyed by environment name: dev/test/prod)."
+  description = "Per-environment configuration (keyed by environment name: dev/prod)."
   type = map(object({
     location               = string
     node_version           = string
@@ -37,11 +37,6 @@ variable "environments" {
       location             = "eastus"
       node_version         = "24"
       cors_allowed_origins = ["https://delightful-water-09b7c480f.7.azurestaticapps.net"]
-    }
-    test = {
-      location             = "eastus"
-      node_version         = "24"
-      cors_allowed_origins = ["https://delightful-sea-0e15b030f.7.azurestaticapps.net"]
     }
     prod = {
       location               = "eastus"

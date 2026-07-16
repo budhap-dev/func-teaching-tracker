@@ -1,7 +1,7 @@
 # Deployment & Infrastructure
 
-How **func-teaching-tracker** is provisioned and deployed to Azure across three
-environments (`dev`, `test`, `prod`) using Terraform and GitHub Actions.
+How **func-teaching-tracker** is provisioned and deployed to Azure across two
+environments (`dev`, `prod`) using Terraform and GitHub Actions.
 
 - Infrastructure as code: [infra/terraform/](../infra/terraform/)
 - Pipeline: [.github/workflows/deploy.yml](../.github/workflows/deploy.yml) +
@@ -18,20 +18,15 @@ flowchart TB
     subgraph GHA[GitHub Actions]
         build[build: npm ci and build, upload artifact]
         build --> jdev[deploy dev]
-        jdev --> jtest[deploy test]
         buildp[build] --> jprod[deploy prod]
     end
 
     jdev -->|OIDC| adev[App dev]
-    jtest -->|OIDC| atest[App test]
     jprod -->|OIDC| aprod[App prod]
 
     subgraph AZ[Azure subscription]
         subgraph RGD[rg-teachtracker-dev]
             adev[Function App dev]
-        end
-        subgraph RGT[rg-teachtracker-test]
-            atest[Function App test]
         end
         subgraph RGP[rg-teachtracker-prod]
             aprod[Function App prod]
@@ -42,7 +37,7 @@ flowchart TB
     TF -.creates OIDC identities.-> GHA
 ```
 
-Key idea: **build once, promote the same artifact** from dev → test. Each
+Key idea: **build once, deploy that artifact** to dev. Each
 environment is a fully isolated Azure resource group with its own Function App and
 its own CI identity. No long-lived secrets are stored anywhere — GitHub Actions
 authenticates to Azure with short-lived **OIDC** tokens.
@@ -52,7 +47,6 @@ authenticates to Azure with short-lived **OIDC** tokens.
 | Environment | Resource group         | Trigger                     | Scale (max instances) |
 | ----------- | ---------------------- | --------------------------- | --------------------- |
 | `dev`       | `rg-teachtracker-dev`  | auto, on push to `main`     | 40                    |
-| `test`      | `rg-teachtracker-test` | auto, after `dev` succeeds  | 40                    |
 | `prod`      | `rg-teachtracker-prod` | **manual** (`deploy-prod.yml`) | 100                |
 
 ### Hosted URLs
@@ -60,14 +54,13 @@ authenticates to Azure with short-lived **OIDC** tokens.
 | Env    | API base URL                                                | Function App                    | Allowed frontend origin (CORS)                            |
 | ------ | ----------------------------------------------------------- | ------------------------------- | --------------------------------------------------------- |
 | `dev`  | https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api   | `func-teachtracker-dev-pjlmrq`  | https://delightful-water-09b7c480f.7.azurestaticapps.net   |
-| `test` | https://func-teachtracker-test-mtbace.azurewebsites.net/api  | `func-teachtracker-test-mtbace` | https://delightful-sea-0e15b030f.7.azurestaticapps.net     |
 | `prod` | https://func-teachtracker-prod-gjvecw.azurewebsites.net/api  | `func-teachtracker-prod-gjvecw` | https://nice-sea-095463c0f.7.azurestaticapps.net           |
 
 Subscription `e16bea76-64f0-45a5-ae4a-53701ff61801` · Tenant `d2fa8fd6-d1f2-4ac4-bcf5-e8dd34885bb3`
 
 Environments are defined by the `environments` map in
 [infra/terraform/variables.tf](../infra/terraform/variables.tf). The map keys
-(`dev`/`test`/`prod`) are the contract: they must match the GitHub Environment names
+(`dev`/`prod`) are the contract: they must match the GitHub Environment names
 in the workflow, the OIDC federated-credential subjects, and the `ENVIRONMENT` app
 setting that selects the seed dataset.
 
@@ -79,7 +72,6 @@ serves distinct people and volumes — see [`src/data/seed.ts`](../src/data/seed
 | Env    | Students | Sessions | Payments | Base fee | Expected / month |
 | ------ | -------- | -------- | -------- | -------- | ---------------- |
 | `dev`  | 5        | 4        | 60       | £100     | £590             |
-| `test` | 10       | 6        | 120      | £110     | £1,295           |
 | `prod` | 15       | 8        | 180      | £120     | £2,115           |
 
 ## CORS
@@ -120,17 +112,15 @@ assignment scoped to that environment's resource group.
 
 ## CI/CD pipeline
 
-Defined in [deploy.yml](../.github/workflows/deploy.yml) (dev → test on push),
+Defined in [deploy.yml](../.github/workflows/deploy.yml) (dev on push),
 [deploy-prod.yml](../.github/workflows/deploy-prod.yml) (manual prod), and
 [deploy-env.yml](../.github/workflows/deploy-env.yml) (reusable per-env deploy).
 
 1. **build** — `npm ci`, `npm run build`, prune dev dependencies, then upload the
    deployment package (`dist`, prod `node_modules`, `host.json`, `package.json`,
    `.funcignore`) as a workflow artifact.
-2. **dev** → **test** — each job downloads that same artifact, logs into Azure via
-   OIDC using the target environment's variables, and deploys with
-   `Azure/functions-action`. Jobs are chained with `needs:`, so a failure stops
-   promotion.
+2. **dev** — downloads that artifact, logs into Azure via OIDC using the target
+   environment's variables, and deploys with `Azure/functions-action`.
 3. **prod** — a separate `workflow_dispatch`-only workflow that builds fresh and
    deploys to prod.
 
@@ -194,7 +184,7 @@ subscription):
 az login
 az account set --subscription "e16bea76-64f0-45a5-ae4a-53701ff61801"
 
-# 2. Provision all three environments + OIDC identities
+# 2. Provision both environments + OIDC identities
 cd infra/terraform
 terraform init
 terraform apply                         # review the plan, then "yes"
@@ -203,8 +193,8 @@ terraform apply                         # review the plan, then "yes"
 cd ../..
 ./infra/scripts/configure-github-environments.sh
 
-# 4. Deploy dev + test
-git push                                # build -> dev -> test
+# 4. Deploy dev
+git push                                # build -> dev
 
 # 5. Deploy prod when ready (manual — no approval gate on this plan)
 gh workflow run deploy-prod.yml --ref main
@@ -222,7 +212,7 @@ terraform output azure_client_ids         # -> GitHub AZURE_CLIENT_ID per env
 
 - **Add an environment** (e.g. `staging`): add an entry to the `environments` map,
   `terraform apply`, re-run the configure script, add a `staging` job to
-  `deploy.yml` in the promotion chain, and add a matching `envSeeds` entry in
+  `deploy.yml`, and add a matching `envSeeds` entry in
   [`src/data/seed.ts`](../src/data/seed.ts) (without one it falls back to `dev`'s data).
 - **Resize an environment's dataset**: change `studentCount` / `sessionCount` for
   that env in `envSeeds` — students are generated from the name pool, so no records

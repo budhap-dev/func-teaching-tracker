@@ -1,7 +1,7 @@
 name: Deploy to environment
 
 # Reusable workflow: deploys the prebuilt artifact to one environment.
-# The GitHub Environment (dev/test/prod) supplies the AZURE_* variables and any
+# The GitHub Environment (dev/prod) supplies the AZURE_* variables and any
 # protection rules (e.g. required reviewers on prod). The OIDC token subject
 # becomes `repo:<owner>/<repo>:environment:<name>`, matching the federated
 # credential Terraform created for that environment.
@@ -9,7 +9,7 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: Target environment (dev, test, or prod).
+        description: Target environment (dev or prod).
         required: true
         type: string
 

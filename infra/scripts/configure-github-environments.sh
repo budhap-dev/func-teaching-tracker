@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Configure GitHub Environments (dev/test/prod) and their AZURE_* variables from
+# Configure GitHub Environments (dev/prod) and their AZURE_* variables from
 # Terraform outputs, so the deploy pipeline can authenticate via OIDC.
 #
 # Prereqs: gh (authenticated), terraform, jq. Run from the repo root AFTER
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 TF_DIR="infra/terraform"
-ENVIRONMENTS=(dev test prod)
+ENVIRONMENTS=(dev prod)
 
 for tool in gh terraform jq; do
   command -v "$tool" >/dev/null || { echo "error: '$tool' is required but not installed." >&2; exit 1; }
@@ -42,7 +42,7 @@ done
 
 cat <<'EOF'
 
-Done. GitHub Environments dev/test/prod are configured.
+Done. GitHub Environments dev/prod are configured.
 
 To require manual approval before PROD deploys, add required reviewers:
   GitHub -> repo Settings -> Environments -> prod -> "Required reviewers"

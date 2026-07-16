@@ -49,29 +49,27 @@ npm test           # (no tests configured yet — add them with your change)
 
 ## Deployment & CI/CD
 
-There are **three environments** — `dev`, `test`, and `prod` — each a separate
-Azure Function App. A push to `main` builds once and promotes the same artifact
-through them sequentially via
-[.github/workflows/deploy.yml](.github/workflows/deploy.yml):
+There are **two environments** — `dev` and `prod` — each a separate
+Azure Function App. A push to `main` builds once and deploys that artifact to `dev`
+via [.github/workflows/deploy.yml](.github/workflows/deploy.yml):
 
 ```
-build → deploy dev → deploy test → deploy prod (requires approval)
+build → deploy dev          prod: separate manual workflow (deploy-prod.yml)
 ```
 
 1. **build**: `npm ci` → `npm run build` → prune dev deps → upload the deployment
    artifact.
-2. **dev / test / prod**: each calls the reusable
+2. **dev** (and `prod`, via the manual workflow): each calls the reusable
    [deploy-env.yml](.github/workflows/deploy-env.yml), which authenticates to Azure
    via **OIDC** (`azure/login`, no stored secrets) and deploys with
-   `Azure/functions-action`. `prod` is gated by a GitHub Environment protection rule
-   (required reviewer).
+   `Azure/functions-action`.
 
 Each **GitHub Environment** holds its own variables (not secrets):
 `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_FUNCTIONAPP_NAME`.
 
 ### Infrastructure
 
-All Azure resources — three Flex Consumption Function Apps plus a per-environment
+All Azure resources — two Flex Consumption Function Apps plus a per-environment
 GitHub OIDC identity — are provisioned with Terraform under
 [infra/terraform/](infra/terraform/) using a reusable module driven by an
 `environments` map. It is a **one-time local bootstrap** with local state. See
@@ -79,7 +77,7 @@ GitHub OIDC identity — are provisioned with Terraform under
 
 ```bash
 az login
-cd infra/terraform && terraform init && terraform apply     # creates dev/test/prod
+cd infra/terraform && terraform init && terraform apply     # creates dev/prod
 cd ../.. && ./infra/scripts/configure-github-environments.sh # wires GitHub Environments
 ```
 

@@ -74,7 +74,6 @@ Terraform), so each environment serves distinct people and volumes:
 | Env  | Students | Classes / year | Fee per session |
 | ---- | -------- | -------------- | --------------- |
 | dev  | 5        | ~261           | from £100       |
-| test | 10       | ~522           | from £110       |
 | prod | 15       | ~783           | from £120       |
 
 Each student has a weekly class through the seed year (2026), on their own
@@ -147,7 +146,6 @@ curl -X PUT http://localhost:7071/api/sessions/1001 \
 | Env      | API base URL                                                | Function App                   | Resource group          |
 | -------- | ----------------------------------------------------------- | ------------------------------ | ----------------------- |
 | **dev**  | https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api   | `func-teachtracker-dev-pjlmrq`  | `rg-teachtracker-dev`  |
-| **test** | https://func-teachtracker-test-mtbace.azurewebsites.net/api  | `func-teachtracker-test-mtbace` | `rg-teachtracker-test` |
 | **prod** | https://func-teachtracker-prod-gjvecw.azurewebsites.net/api  | `func-teachtracker-prod-gjvecw` | `rg-teachtracker-prod` |
 
 Each is called by exactly one frontend (CORS is locked to the paired Static Web
@@ -156,7 +154,6 @@ App origin):
 | Env  | Allowed frontend origin                                   |
 | ---- | --------------------------------------------------------- |
 | dev  | https://delightful-water-09b7c480f.7.azurestaticapps.net   |
-| test | https://delightful-sea-0e15b030f.7.azurestaticapps.net     |
 | prod | https://nice-sea-095463c0f.7.azurestaticapps.net           |
 
 Quick check:
@@ -167,7 +164,7 @@ curl https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api/students
 
 ## Deploy
 
-A push to `main` builds once and promotes the same artifact **dev → test**
+A push to `main` builds once and deploys that artifact to **dev**
 automatically. **Production is a separate, manually-triggered workflow** (there is
 no approval button — GitHub required-reviewer rules need a public repo or paid
 plan):
