@@ -2,7 +2,7 @@ import { Student, StudentMode } from '../models/student'
 import { ScheduledSession, SessionStatus } from '../models/session'
 
 // Each environment serves a distinct dataset — different people and a
-// different volume — so dev/test/prod are easy to tell apart in the UI.
+// different volume — so dev/prod are easy to tell apart in the UI.
 // Students are generated from per-environment name pools, so changing a
 // count below is all that's needed to resize an environment's data.
 
@@ -70,28 +70,6 @@ const envSeeds: Record<string, EnvSeedConfig> = {
             ['Priya', 'Nair'],
             ['Leo', 'Whitfield'],
             ['Zara', 'Ahmed'],
-        ],
-    },
-    test: {
-        codePrefix: 'TST',
-        noteTag: '[test] QA fixture',
-        schools: ['Riverside Test College', 'Stagingfield High'],
-        town: 'Stagingtown',
-        phonePrefix: '+44 7100 0000',
-        baseFee: 110,
-        studentCount: 10,
-        cancelEvery: 7,
-        names: [
-            ['Oliver', 'Grant'],
-            ['Maya', 'Lindqvist'],
-            ['Noah', 'Abassi'],
-            ['Ella', 'Fontaine'],
-            ['Ravi', 'Kapoor'],
-            ['Sofia', 'Marino'],
-            ['Jack', 'Turner'],
-            ['Amara', 'Osei'],
-            ['Ben', 'Fletcher'],
-            ['Iris', 'Kovac'],
         ],
     },
     prod: {

@@ -8,7 +8,7 @@ import {
     seedYear,
 } from './seed'
 
-/** The active environment, from the ENVIRONMENT app setting (dev/test/prod). */
+/** The active environment, from the ENVIRONMENT app setting (dev/prod). */
 export const environmentName: string =
     process.env.ENVIRONMENT &&
     seededEnvironments.includes(process.env.ENVIRONMENT)
@@ -22,7 +22,7 @@ export const billingYear = seedYear
  * A simple in-memory data store seeded with per-environment sample data.
  *
  * The dataset (and its volume) is selected by the ENVIRONMENT app setting, so
- * dev/test/prod each serve distinct data. State persists for the lifetime of a
+ * dev/prod each serve distinct data. State persists for the lifetime of a
  * worker process only — it is NOT durable and resets on restart / scale-out. It
  * exists so the API is runnable out of the box; swap this module for a real
  * repository (Cosmos DB, SQL, Table Storage) without touching the services or
