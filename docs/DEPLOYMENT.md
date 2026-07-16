@@ -92,6 +92,45 @@ az functionapp cors show -n func-teachtracker-dev-pjlmrq -g rg-teachtracker-dev
 After changing a Static Web App URL, update `cors_allowed_origins` and re-apply;
 it's an in-place update (no downtime, no recreate).
 
+## Teacher access (REQ-004)
+
+Who counts as a teacher is controlled by **two gates**, both per environment:
+
+1. **Tenant membership** — sign-in is single-tenant, so only accounts in this
+   Entra tenant can authenticate at all.
+2. **The allow-list** — the `teacher-emails` secret in that environment's Key
+   Vault: comma-separated emails, matched case-insensitively against the
+   signed-in account's `preferred_username`.
+
+The API reads the secret with its managed identity and caches it for
+**5 minutes** — changes apply within that window, with **no deploy and no
+Terraform run** (Terraform deliberately ignores the secret's value).
+
+> While the `AUTH_ENFORCED` app setting is `false` (the rollout phase), the API
+> only *logs* the verdicts. Nothing is refused until the flag is flipped.
+
+### Add a teacher
+
+1. **If their account isn't in the tenant yet:** Entra ID → **Users** →
+   **+ New user → Invite external user** → their email. They accept the
+   invitation once. (Skip for accounts already in the tenant.)
+2. **Add them to the allow-list** — set the *whole* comma-separated value:
+
+   ```bash
+   az keyvault secret set --vault-name <that env's vault> --name teacher-emails \
+     --value "teacher1@example.com,teacher2@example.com"
+   ```
+
+   Or in the portal: **Key Vault → Secrets → `teacher-emails` → + New Version**.
+   Vault names come from `terraform output key_vault_urls` (one per env, so dev
+   can trial a teacher prod doesn't have).
+
+### Remove a teacher
+
+Set the secret without their email (≤ 5 minutes to take effect). Deleting or
+disabling their tenant account as well kills sign-in entirely. Old secret
+versions are retained, so a mistaken edit is one version-rollback away.
+
 ## Azure resources (per environment)
 
 Provisioned by the [function_app](../infra/terraform/modules/function_app) module:
@@ -104,11 +143,23 @@ Provisioned by the [function_app](../infra/terraform/modules/function_app) modul
 | Log Analytics workspace      | `log-teachtracker-<env>`            | Logs backend                  |
 | Application Insights         | `appi-teachtracker-<env>`           | Telemetry / monitoring        |
 | Service plan (`FC1`)         | `plan-teachtracker-<env>`           | Flex Consumption hosting      |
-| Function App (Linux, Node)   | `func-teachtracker-<env>-<rand>`    | The API                       |
+| Function App (Linux, Node)   | `func-teachtracker-<env>-<rand>`    | The API (system-assigned managed identity) |
 
 The [github_oidc](../infra/terraform/modules/github_oidc) module adds, per env: an
 Azure AD app registration, a federated credential, and a `Contributor` role
 assignment scoped to that environment's resource group.
+
+The [teacher_auth](../infra/terraform/modules/teacher_auth) module (REQ-004)
+adds, per env, in its own `rg-teachtracker-<env>-auth` group:
+
+| Resource                        | Name pattern                     | Purpose                                  |
+| ------------------------------- | -------------------------------- | ---------------------------------------- |
+| Key Vault                       | `kvteachtracker<env><rand>`      | `teacher-emails` allow-list secret       |
+| App registration (API)          | `teachtracker-<env>-api`         | Token audience; `access_as_teacher` scope |
+| App registration (SPA)          | `teachtracker-<env>-spa`         | MSAL sign-in client (pre-authorised)     |
+
+plus role assignments: the Function App's managed identity reads vault secrets
+(`Key Vault Secrets User`), and the bootstrap principal administers the vault.
 
 ## CI/CD pipeline
 
@@ -237,3 +288,5 @@ terraform output azure_client_ids         # -> GitHub AZURE_CLIENT_ID per env
 | Browser blocked by CORS                              | Origin missing from that env's `cors_allowed_origins`. Check `az functionapp cors show` — **not** `siteConfig.cors`, which is always empty on Flex Consumption. |
 | Frontend screens empty after a prod deploy            | Frontend shipped ahead of this API — `/sessions` + `/payments/by-month` 404. Deploy this API, then the frontend. |
 | An env serves the wrong dataset                      | Its `ENVIRONMENT` app setting doesn't match a key in `envSeeds` (`src/data/seed.ts`); unknown values fall back to `dev`. |
+| A teacher gets 403 after signing in                  | Their email is missing from that env's `teacher-emails` secret, or was added < 5 min ago (cache). See [Teacher access](#teacher-access-req-004). If the log shows an `#EXT#…` username, the allow-list entry must match that exact form. |
+| Everything 401s unexpectedly                         | `AUTH_ENFORCED` was flipped to `true` before the frontend shipped sign-in, or `TENANT_ID`/`API_CLIENT_ID` app settings are wrong. Flip the flag back — it's a setting, not a deploy. |

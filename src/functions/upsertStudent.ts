@@ -7,6 +7,7 @@ import {
 import { StudentInput } from '../models/student'
 import { upsertStudent, validateStudentInput } from '../services/studentService'
 import { badRequest, created, ok, parseJsonBody } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /**
  * POST /api/students        — create or update a student (id optional in body).
@@ -16,6 +17,11 @@ export async function upsertStudentHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const body = await parseJsonBody<StudentInput>(request)
     const error = validateStudentInput(body)
     if (error || !body) {

@@ -7,6 +7,7 @@ import {
 import { PaymentQuery, paymentStatuses, PaymentStatus } from '../models/payment'
 import { listPayments } from '../services/paymentService'
 import { badRequest, ok } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /**
  * GET /api/payments — returns payment records.
@@ -16,6 +17,11 @@ export async function getPayments(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const query: PaymentQuery = {}
 
     const studentIdParam = request.query.get('studentId')

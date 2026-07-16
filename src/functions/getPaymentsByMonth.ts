@@ -7,6 +7,7 @@ import {
 import { PaymentQuery, paymentStatuses, PaymentStatus } from '../models/payment'
 import { listPaymentsByMonth } from '../services/paymentService'
 import { badRequest, ok } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /**
  * GET /api/payments/by-month — payment records grouped by month, each with
@@ -17,6 +18,11 @@ export async function getPaymentsByMonth(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const query: PaymentQuery = {}
 
     const studentIdParam = request.query.get('studentId')
