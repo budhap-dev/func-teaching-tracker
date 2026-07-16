@@ -18,6 +18,18 @@ export const badRequest = (message: string): HttpResponseInit => ({
     jsonBody: { error: message },
 })
 
+/** 401 Unauthorized — no token, or one that fails validation. */
+export const unauthorized = (message: string): HttpResponseInit => ({
+    status: 401,
+    jsonBody: { error: message },
+})
+
+/** 403 Forbidden — a valid token, but not an allowed teacher. */
+export const forbidden = (message: string): HttpResponseInit => ({
+    status: 403,
+    jsonBody: { error: message },
+})
+
 /** 404 Not Found with an error message. */
 export const notFound = (message: string): HttpResponseInit => ({
     status: 404,

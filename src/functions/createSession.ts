@@ -7,12 +7,18 @@ import {
 import { SessionInput } from '../models/session'
 import { createSession, validateSessionInput } from '../services/sessionService'
 import { badRequest, created, parseJsonBody } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /** POST /api/sessions — schedules a new class. */
 export async function createSessionHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const body = await parseJsonBody<SessionInput>(request)
     const error = validateSessionInput(body)
     if (error || !body) {

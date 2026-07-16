@@ -7,6 +7,7 @@ import {
 import { SessionUpdate } from '../models/session'
 import { updateSession, validateSessionUpdate } from '../services/sessionService'
 import { badRequest, notFound, ok, parseJsonBody } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /**
  * PUT /api/sessions/{id} — edits a class and/or cancels/restores it.
@@ -17,6 +18,11 @@ export async function updateSessionHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const id = Number(request.params.id)
     if (!Number.isInteger(id)) {
         return badRequest('Session id must be an integer.')

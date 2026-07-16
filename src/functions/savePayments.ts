@@ -7,6 +7,7 @@ import {
 import { PaymentInput } from '../models/payment'
 import { savePayments, validatePaymentInput } from '../services/paymentService'
 import { badRequest, ok, parseJsonBody } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /**
  * POST /api/payments — create or update payment records.
@@ -17,6 +18,11 @@ export async function savePaymentsHandler(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const body = await parseJsonBody<PaymentInput | PaymentInput[]>(request)
     if (body === undefined) {
         return badRequest('Request body must be a payment object or array.')

@@ -6,12 +6,18 @@ import {
 } from '@azure/functions'
 import { listStudents } from '../services/studentService'
 import { ok } from '../shared/http'
+import { isRefusal, requireTeacher } from '../shared/auth'
 
 /** GET /api/students — returns all students. */
 export async function getStudents(
-    _request: HttpRequest,
+    request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const auth = await requireTeacher(request, context)
+    if (isRefusal(auth)) {
+        return auth
+    }
+
     const students = listStudents()
     context.log(`Returning ${students.length} students`)
     return ok(students)
