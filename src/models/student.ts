@@ -10,7 +10,12 @@ export interface Student {
     subjects: string[]
     school: string
     year: string
+    /** Blended 0–100 figure. When progressBySubject exists, the API keeps
+        this as the rounded average of its values. */
     progress: number
+    /** Progress per studied subject (0–100). Optional: older records carry
+        only the blended figure and keep working unchanged (REQ-014). */
+    progressBySubject?: Record<string, number>
     mode: StudentMode
     /** Agreed price for a single session with this student, in GBP. */
     fees: number
