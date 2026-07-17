@@ -202,6 +202,51 @@ const buildSessions = (
         return sessions
     })
 
+/**
+ * One weekly group class on Saturdays for the first two students — so group
+ * sessions are visible in every environment without booking one by hand.
+ */
+const buildGroupSessions = (
+    students: Student[],
+    year: number
+): ScheduledSession[] => {
+    if (students.length < 2) {
+        return []
+    }
+    const members = students.slice(0, 2)
+
+    // First Saturday of January.
+    const first = new Date(Date.UTC(year, 0, 1))
+    while (first.getUTCDay() !== 6) {
+        first.setUTCDate(first.getUTCDate() + 1)
+    }
+
+    const sessions: ScheduledSession[] = []
+    const cursor = new Date(first)
+    let week = 0
+    while (cursor.getUTCFullYear() === year) {
+        members.forEach((student, index) => {
+            sessions.push({
+                // Far above the per-student id range (id * 1000 + week).
+                id: 900000 + week * 10 + index,
+                studentId: student.id,
+                studentName: `${student.firstName} ${student.lastName}`,
+                year: student.year,
+                subject: student.subjects[0],
+                date: cursor.toISOString().slice(0, 10),
+                time: '10:00',
+                durationMinutes: 90,
+                groupId: `grp-seed-${week}`,
+                notes: 'Weekly group revision',
+                status: 'Scheduled',
+            })
+        })
+        cursor.setUTCDate(cursor.getUTCDate() + 7)
+        week += 1
+    }
+    return sessions
+}
+
 /** The year the seed timetable covers. */
 export const seedYear = 2026
 
@@ -211,5 +256,9 @@ export const buildSeedForEnv = (
 ): { students: Student[]; sessions: ScheduledSession[] } => {
     const config = envSeeds[env] ?? envSeeds[defaultEnv]
     const students = buildStudents(config)
-    return { students, sessions: buildSessions(students, config, seedYear) }
+    const sessions = [
+        ...buildSessions(students, config, seedYear),
+        ...buildGroupSessions(students, seedYear),
+    ]
+    return { students, sessions }
 }

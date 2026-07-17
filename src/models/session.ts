@@ -25,13 +25,17 @@ export interface ScheduledSession {
     time: string
     /** Length of the class in minutes (30 / 60 / 90 / 120). */
     durationMinutes: number
+    /** Links the rows of a group class; absent on a solo class. */
+    groupId?: string
     notes: string
     status: SessionStatus
 }
 
 /** Payload accepted by the create-session endpoint. */
 export interface SessionInput {
-    studentId: number
+    /** One student — or several via `studentIds`, booking a group class. */
+    studentId?: number
+    studentIds?: number[]
     studentName?: string
     year?: string
     subject: string
@@ -56,6 +60,8 @@ export interface SessionUpdate {
     durationMinutes?: number
     notes?: string
     status?: SessionStatus
+    /** Apply this update to every row sharing the session's groupId. */
+    applyToGroup?: boolean
 }
 
 /**
