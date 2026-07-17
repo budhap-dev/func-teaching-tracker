@@ -34,13 +34,18 @@ export async function updateSessionHandler(
         return badRequest(error ?? 'Invalid request body.')
     }
 
-    const session = updateSession(id, body)
-    if (!session) {
+    const sessions = updateSession(id, body)
+    if (!sessions) {
         return notFound(`Session ${id} not found.`)
     }
 
-    context.log(`Session ${id} updated`)
-    return ok(session)
+    context.log(
+        sessions.length === 1
+            ? `Session ${id} updated`
+            : `Group ${sessions[0].groupId} updated (${sessions.length} rows)`
+    )
+    // One row keeps the old single-object shape for older clients.
+    return ok(sessions.length === 1 ? sessions[0] : sessions)
 }
 
 app.http('updateSession', {

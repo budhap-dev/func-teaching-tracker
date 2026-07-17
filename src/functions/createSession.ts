@@ -5,7 +5,7 @@ import {
     InvocationContext,
 } from '@azure/functions'
 import { SessionInput } from '../models/session'
-import { createSession, validateSessionInput } from '../services/sessionService'
+import { createSessions, validateSessionInput } from '../services/sessionService'
 import { badRequest, created, parseJsonBody } from '../shared/http'
 import { isRefusal, requireTeacher } from '../shared/auth'
 
@@ -25,9 +25,12 @@ export async function createSessionHandler(
         return badRequest(error ?? 'Invalid request body.')
     }
 
-    const session = createSession(body)
-    context.log(`Scheduled session ${session.id} for student ${session.studentId}`)
-    return created(session)
+    const sessions = createSessions(body)
+    context.log(
+        `Scheduled ${sessions.length === 1 ? `session ${sessions[0].id}` : `group of ${sessions.length} (${sessions[0].groupId})`}`
+    )
+    // Solo bookings keep the old single-object shape for older clients.
+    return created(sessions.length === 1 ? sessions[0] : sessions)
 }
 
 app.http('createSession', {

@@ -18,26 +18,45 @@ export const listSessions = (studentId?: number): ScheduledSession[] =>
             `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`)
         )
 
-/** Creates a scheduled session, filling studentName/year from the student. */
-export const createSession = (input: SessionInput): ScheduledSession => {
-    const student = getStudentById(input.studentId)
-    const session: ScheduledSession = {
-        id: store.nextSessionId(),
-        studentId: input.studentId,
-        studentName:
-            input.studentName ??
-            (student ? `${student.firstName} ${student.lastName}` : ''),
-        year: input.year ?? student?.year ?? '',
-        subject: input.subject,
-        date: input.date,
-        time: input.time,
-        // Older clients omit it: an hour is the house default.
-        durationMinutes: input.durationMinutes ?? 60,
-        notes: input.notes ?? '',
-        status: 'Scheduled',
-    }
-    store.sessions.push(session)
-    return session
+/**
+ * Creates a class — one row per attending student. A single student books a
+ * solo row (no groupId, exactly as before); several book linked rows sharing
+ * a groupId, which is what makes them one class on the calendar.
+ */
+export const createSessions = (input: SessionInput): ScheduledSession[] => {
+    const studentIds =
+        input.studentIds && input.studentIds.length > 0
+            ? input.studentIds
+            : [input.studentId as number]
+    const firstId = store.nextSessionId()
+    const groupId = studentIds.length > 1 ? `grp-${firstId}` : undefined
+
+    return studentIds.map((studentId, index) => {
+        const student = getStudentById(studentId)
+        const session: ScheduledSession = {
+            id: firstId + index,
+            studentId,
+            // The denormalised name/year come from the roster; the caller's
+            // override only makes sense for a solo booking.
+            studentName:
+                (studentIds.length === 1 ? input.studentName : undefined) ??
+                (student ? `${student.firstName} ${student.lastName}` : ''),
+            year:
+                (studentIds.length === 1 ? input.year : undefined) ??
+                student?.year ??
+                '',
+            subject: input.subject,
+            date: input.date,
+            time: input.time,
+            // Older clients omit it: an hour is the house default.
+            durationMinutes: input.durationMinutes ?? 60,
+            ...(groupId ? { groupId } : {}),
+            notes: input.notes ?? '',
+            status: 'Scheduled',
+        }
+        store.sessions.push(session)
+        return session
+    })
 }
 
 /** Returns a single session by id, or `undefined`. */
@@ -54,11 +73,26 @@ export const getSessionById = (id: number): ScheduledSession | undefined =>
 export const updateSession = (
     id: number,
     update: SessionUpdate
-): ScheduledSession | undefined => {
+): ScheduledSession[] | undefined => {
     const session = getSessionById(id)
     if (!session) {
         return undefined
     }
+
+    // The group moves as one: applyToGroup fans the same update out to every
+    // linked row. Per-student changes (status without the flag) touch one row.
+    const targets =
+        update.applyToGroup && session.groupId
+            ? store.sessions.filter(
+                  (candidate) => candidate.groupId === session.groupId
+              )
+            : [session]
+
+    targets.forEach((target) => applyUpdate(target, update))
+    return targets
+}
+
+const applyUpdate = (session: ScheduledSession, update: SessionUpdate) => {
 
     if (update.studentId !== undefined) {
         session.studentId = update.studentId
@@ -78,8 +112,6 @@ export const updateSession = (
         session.durationMinutes = update.durationMinutes
     if (update.notes !== undefined) session.notes = update.notes
     if (update.status !== undefined) session.status = update.status
-
-    return session
 }
 
 const isValidDuration = (value: number): boolean =>
@@ -138,8 +170,13 @@ export const validateSessionInput = (
     if (!input || typeof input !== 'object') {
         return 'Request body must be a session object.'
     }
-    if (typeof input.studentId !== 'number') {
-        return 'studentId is required and must be a number.'
+    const hasSolo = typeof input.studentId === 'number'
+    const hasGroup =
+        Array.isArray(input.studentIds) &&
+        input.studentIds.length > 0 &&
+        input.studentIds.every((id) => typeof id === 'number')
+    if (!hasSolo && !hasGroup) {
+        return 'studentId (or a non-empty studentIds array) is required.'
     }
     if (!input.subject?.trim()) {
         return 'subject is required.'
