@@ -31,6 +31,7 @@ export const upsertStudent = (input: StudentInput): UpsertResult => {
 
     if (existing) {
         Object.assign(existing, sanitize(input), { id: existing.id })
+        reconcileProgress(existing)
         return { student: existing, created: false }
     }
 
@@ -44,6 +45,7 @@ export const upsertStudent = (input: StudentInput): UpsertResult => {
         school: input.school ?? '',
         year: input.year ?? '',
         progress: input.progress ?? 0,
+        progressBySubject: input.progressBySubject,
         mode: normalizeMode(input.mode),
         fees: input.fees ?? 0,
         notes: input.notes ?? '',
@@ -51,8 +53,36 @@ export const upsertStudent = (input: StudentInput): UpsertResult => {
         contactNumber: input.contactNumber ?? '',
         address: input.address ?? '',
     }
+    reconcileProgress(student)
     store.students.push(student)
     return { student, created: true }
+}
+
+/**
+ * Keeps the per-subject map honest after any write: entries for subjects the
+ * student no longer studies are dropped, an emptied map is removed entirely,
+ * and the blended `progress` becomes the rounded average of what remains —
+ * so every consumer of the single figure (dashboard average, snapshots)
+ * keeps working without change (REQ-014).
+ */
+const reconcileProgress = (student: Student): void => {
+    const map = student.progressBySubject
+    if (!map) {
+        return
+    }
+    Object.keys(map).forEach((subject) => {
+        if (!student.subjects.includes(subject)) {
+            delete map[subject]
+        }
+    })
+    const values = Object.values(map)
+    if (values.length === 0) {
+        delete student.progressBySubject
+        return
+    }
+    student.progress = Math.round(
+        values.reduce((sum, value) => sum + value, 0) / values.length
+    )
 }
 
 /** Validates a raw upsert payload, returning an error string when invalid. */
@@ -78,6 +108,22 @@ export const validateStudentInput = (
             input.progress > 100)
     ) {
         return 'progress must be a number between 0 and 100.'
+    }
+    if (input.progressBySubject !== undefined) {
+        if (
+            typeof input.progressBySubject !== 'object' ||
+            input.progressBySubject === null ||
+            Array.isArray(input.progressBySubject)
+        ) {
+            return 'progressBySubject must be an object of subject: number.'
+        }
+        const badValue = Object.values(input.progressBySubject).some(
+            (value) =>
+                typeof value !== 'number' || value < 0 || value > 100
+        )
+        if (badValue) {
+            return 'progressBySubject values must be numbers between 0 and 100.'
+        }
     }
     if (
         input.fees !== undefined &&

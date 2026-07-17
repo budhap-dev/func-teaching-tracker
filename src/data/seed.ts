@@ -128,7 +128,30 @@ const buildStudents = (config: EnvSeedConfig): Student[] =>
             subjects: subjectRotation[i % subjectRotation.length],
             school: config.schools[i % config.schools.length],
             year: yearRotation[i % yearRotation.length],
-            progress: 55 + ((i * 7) % 41),
+            // Per-subject progress spreads around a base figure; the
+            // blended `progress` is kept as the exact rounded average, the
+            // same invariant the API maintains on writes (REQ-014).
+            ...(() => {
+                const subjects = subjectRotation[i % subjectRotation.length]
+                const base = 55 + ((i * 7) % 41)
+                const progressBySubject = Object.fromEntries(
+                    subjects.map((subject, j) => [
+                        subject,
+                        Math.min(
+                            100,
+                            Math.max(20, base - 8 + ((i + j * 5) % 17)),
+                        ),
+                    ])
+                )
+                const values = Object.values(progressBySubject)
+                return {
+                    progressBySubject,
+                    progress: Math.round(
+                        values.reduce((sum, value) => sum + value, 0) /
+                            values.length
+                    ),
+                }
+            })(),
             mode,
             fees: config.baseFee + (i % 4) * 15,
             notes: config.noteTag,
