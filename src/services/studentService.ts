@@ -41,6 +41,11 @@ export const upsertStudent = async (
         }
         reconcileProgress(merged)
         await dataStore.putStudent(merged)
+        // A student's classes carry a denormalised copy of their name and year,
+        // frozen at booking time. Refresh any that have drifted so a rename
+        // never leaves a stale name on the dashboard or planner — and existing
+        // drift heals on the next save, not only on a fresh rename.
+        await refreshSessionNames(merged)
         return { student: merged, created: false }
     }
 
@@ -65,6 +70,28 @@ export const upsertStudent = async (
     reconcileProgress(student)
     await dataStore.putStudent(student)
     return { student, created: true }
+}
+
+/**
+ * Brings the denormalised name/year on a student's classes back in step with
+ * their record. Only rows that have actually drifted are rewritten, so a save
+ * that changed nothing about the name touches no sessions.
+ */
+const refreshSessionNames = async (student: Student): Promise<void> => {
+    const fullName = `${student.firstName} ${student.lastName}`
+    const sessions = await dataStore.listSessions()
+    for (const session of sessions) {
+        if (
+            session.studentId === student.id &&
+            (session.studentName !== fullName || session.year !== student.year)
+        ) {
+            await dataStore.putSession({
+                ...session,
+                studentName: fullName,
+                year: student.year,
+            })
+        }
+    }
 }
 
 /** Erases a student and all their sessions and settlements (GDPR, REQ-009). */

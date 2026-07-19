@@ -170,6 +170,32 @@ export const updateSession = async (
     return targets
 }
 
+/**
+ * Permanently removes a class — every row of a group class — as if it were
+ * never booked. Unlike cancelling (which keeps a marked row for the record),
+ * this is a real delete, for classes entered by mistake. Returns the removed
+ * ids, or undefined when the class does not exist.
+ */
+export const deleteSessionClass = async (
+    id: number
+): Promise<number[] | undefined> => {
+    const session = await dataStore.getSession(id)
+    if (!session) {
+        return undefined
+    }
+
+    // A group class deletes whole: every linked row goes, not just the one
+    // whose id was given.
+    const targets = session.groupId
+        ? await dataStore.listSessionsByGroup(session.groupId)
+        : [session]
+
+    for (const target of targets) {
+        await dataStore.deleteSession(target.id)
+    }
+    return targets.map((target) => target.id)
+}
+
 const applyUpdate = async (
     session: ScheduledSession,
     update: SessionUpdate

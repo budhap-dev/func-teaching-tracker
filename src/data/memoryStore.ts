@@ -80,6 +80,10 @@ export class MemoryStore implements DataStore {
         }
     }
 
+    async deleteSession(id: number): Promise<void> {
+        this.sessions = this.sessions.filter((session) => session.id !== id)
+    }
+
     async nextSessionIds(count: number): Promise<number[]> {
         const base =
             this.sessions.reduce((max, s) => Math.max(max, s.id), 0) + 1
