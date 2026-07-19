@@ -34,7 +34,7 @@ export async function updateSessionHandler(
         return badRequest(error ?? 'Invalid request body.')
     }
 
-    const sessions = updateSession(id, body)
+    const sessions = await updateSession(id, body)
     if (!sessions) {
         return notFound(`Session ${id} not found.`)
     }

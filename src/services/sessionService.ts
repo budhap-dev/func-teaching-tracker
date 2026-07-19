@@ -1,4 +1,4 @@
-import { store } from '../data/store'
+import { dataStore } from '../data/store'
 import {
     ScheduledSession,
     SessionInput,
@@ -9,32 +9,45 @@ import {
 import { getStudentById } from './studentService'
 
 /** Returns scheduled sessions, optionally filtered by student, date-ordered. */
-export const listSessions = (studentId?: number): ScheduledSession[] =>
-    store.sessions
+export const listSessions = async (
+    studentId?: number
+): Promise<ScheduledSession[]> => {
+    const sessions = await dataStore.listSessions()
+    return sessions
         .filter(
-            (session) => studentId === undefined || session.studentId === studentId
+            (session) =>
+                studentId === undefined || session.studentId === studentId
         )
         .sort((left, right) =>
-            `${left.date} ${left.time}`.localeCompare(`${right.date} ${right.time}`)
+            `${left.date} ${left.time}`.localeCompare(
+                `${right.date} ${right.time}`
+            )
         )
+}
 
 /**
  * Creates a class — one row per attending student. A single student books a
  * solo row (no groupId, exactly as before); several book linked rows sharing
  * a groupId, which is what makes them one class on the calendar.
  */
-export const createSessions = (input: SessionInput): ScheduledSession[] => {
+export const createSessions = async (
+    input: SessionInput
+): Promise<ScheduledSession[]> => {
     const studentIds =
         input.studentIds && input.studentIds.length > 0
             ? input.studentIds
             : [input.studentId as number]
-    const firstId = store.nextSessionId()
-    const groupId = studentIds.length > 1 ? `grp-${firstId}` : undefined
+    // The whole contiguous id block is reserved at once, so grp-<firstId>
+    // naming survives even under a concurrent writer.
+    const ids = await dataStore.nextSessionIds(studentIds.length)
+    const groupId = studentIds.length > 1 ? `grp-${ids[0]}` : undefined
 
-    return studentIds.map((studentId, index) => {
-        const student = getStudentById(studentId)
+    const created: ScheduledSession[] = []
+    for (let index = 0; index < studentIds.length; index += 1) {
+        const studentId = studentIds[index]
+        const student = await getStudentById(studentId)
         const session: ScheduledSession = {
-            id: firstId + index,
+            id: ids[index],
             studentId,
             // The denormalised name/year come from the roster; the caller's
             // override only makes sense for a solo booking.
@@ -54,14 +67,16 @@ export const createSessions = (input: SessionInput): ScheduledSession[] => {
             notes: input.notes ?? '',
             status: 'Scheduled',
         }
-        store.sessions.push(session)
-        return session
-    })
+        await dataStore.putSession(session)
+        created.push(session)
+    }
+    return created
 }
 
 /** Returns a single session by id, or `undefined`. */
-export const getSessionById = (id: number): ScheduledSession | undefined =>
-    store.sessions.find((session) => session.id === id)
+export const getSessionById = (
+    id: number
+): Promise<ScheduledSession | undefined> => dataStore.getSession(id)
 
 /**
  * Applies a partial update to a class: its details, its status, or both. Only
@@ -70,11 +85,11 @@ export const getSessionById = (id: number): ScheduledSession | undefined =>
  * was planned. Changing the student refreshes the denormalised name/year from
  * the roster unless the caller supplied its own.
  */
-export const updateSession = (
+export const updateSession = async (
     id: number,
     update: SessionUpdate
-): ScheduledSession[] | undefined => {
-    const session = getSessionById(id)
+): Promise<ScheduledSession[] | undefined> => {
+    const session = await dataStore.getSession(id)
     if (!session) {
         return undefined
     }
@@ -83,26 +98,32 @@ export const updateSession = (
     // linked row. Per-student changes (status without the flag) touch one row.
     const targets =
         update.applyToGroup && session.groupId
-            ? store.sessions.filter(
-                  (candidate) => candidate.groupId === session.groupId
-              )
+            ? await dataStore.listSessionsByGroup(session.groupId)
             : [session]
 
-    targets.forEach((target) => applyUpdate(target, update))
+    for (const target of targets) {
+        await applyUpdate(target, update)
+        await dataStore.putSession(target)
+    }
     return targets
 }
 
-const applyUpdate = (session: ScheduledSession, update: SessionUpdate) => {
-
+const applyUpdate = async (
+    session: ScheduledSession,
+    update: SessionUpdate
+) => {
     if (update.studentId !== undefined) {
         session.studentId = update.studentId
-        const student = getStudentById(update.studentId)
+        const student = await getStudentById(update.studentId)
         session.studentName =
             update.studentName ??
-            (student ? `${student.firstName} ${student.lastName}` : session.studentName)
+            (student
+                ? `${student.firstName} ${student.lastName}`
+                : session.studentName)
         session.year = update.year ?? student?.year ?? session.year
     } else {
-        if (update.studentName !== undefined) session.studentName = update.studentName
+        if (update.studentName !== undefined)
+            session.studentName = update.studentName
         if (update.year !== undefined) session.year = update.year
     }
     if (update.subject !== undefined) session.subject = update.subject

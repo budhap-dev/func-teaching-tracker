@@ -18,7 +18,7 @@ export async function getStudents(
         return auth
     }
 
-    const students = listStudents()
+    const students = await listStudents()
     context.log(`Returning ${students.length} students`)
     return ok(students)
 }

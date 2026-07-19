@@ -31,18 +31,30 @@ variable "environments" {
     instance_memory_in_mb  = optional(number, 2048)
     maximum_instance_count = optional(number, 40)
     cors_allowed_origins   = optional(list(string), [])
+    # REQ-004 T4: whether the API rejects unauthenticated calls. Managed here
+    # so a later apply never silently un-enforces it (was an out-of-band flip).
+    auth_enforced = optional(bool, false)
+    # REQ-009: which persistence adapter the app uses. "memory" until the
+    # env's tables are provisioned and seeded, then "tables".
+    data_store = optional(string, "memory")
   }))
   default = {
     dev = {
-      location             = "eastus"
+      # REQ-009 phase 0: the data-processing stack lives in the UK.
+      location             = "uksouth"
       node_version         = "24"
-      cors_allowed_origins = ["https://delightful-water-09b7c480f.7.azurestaticapps.net"]
+      cors_allowed_origins = ["https://kind-sea-093f96a0f.7.azurestaticapps.net"]
+      # Dev enforces sign-in (flipped 2026-07-17); phase 5 flipped to tables.
+      auth_enforced = true
+      data_store    = "tables"
     }
     prod = {
       location               = "eastus"
       node_version           = "24"
       maximum_instance_count = 100
       cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
+      auth_enforced          = false
+      data_store             = "memory"
     }
   }
 }

@@ -36,6 +36,9 @@ export const notFound = (message: string): HttpResponseInit => ({
     jsonBody: { error: message },
 })
 
+/** 204 No Content — a successful action with nothing to return (e.g. delete). */
+export const noContent = (): HttpResponseInit => ({ status: 204 })
+
 /**
  * Parses a request JSON body, returning `undefined` when the body is empty or
  * not valid JSON. Callers should validate the returned shape.

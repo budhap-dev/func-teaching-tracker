@@ -1,0 +1,53 @@
+import { Student } from '../models/student'
+import { ScheduledSession } from '../models/session'
+import { PaymentSettlement } from '../models/payment'
+
+/**
+ * The persistence seam (REQ-009).
+ *
+ * Every operation the services actually need, and nothing more — expressed
+ * asynchronously so the same interface fits both the in-memory adapter (which
+ * resolves immediately) and a durable store like Azure Table Storage (which
+ * awaits the network). Swapping stores is a matter of which implementation the
+ * factory returns; the services and functions above never change.
+ *
+ * What is *not* here: a student's bill. That stays derived from the classes
+ * that took place (see paymentService), never stored, so it cannot drift. Only
+ * settlements — what the teacher actually recorded — are persisted.
+ */
+export interface DataStore {
+    // --- Students ---
+    listStudents(): Promise<Student[]>
+    getStudent(id: number): Promise<Student | undefined>
+    /** Creates or replaces a student by id. */
+    putStudent(student: Student): Promise<void>
+    /** Reserves the next numeric student id. */
+    nextStudentId(): Promise<number>
+    /**
+     * Erases a student and everything about them — their sessions and
+     * settlements — in one call (GDPR right to erasure, REQ-009 §10).
+     */
+    deleteStudentCascade(id: number): Promise<void>
+
+    // --- Sessions ---
+    listSessions(): Promise<ScheduledSession[]>
+    getSession(id: number): Promise<ScheduledSession | undefined>
+    /** Every row sharing a group class's id. */
+    listSessionsByGroup(groupId: string): Promise<ScheduledSession[]>
+    /** Creates or replaces a session by id. */
+    putSession(session: ScheduledSession): Promise<void>
+    /**
+     * Reserves `count` contiguous numeric session ids — a group booking takes
+     * its whole block at once, so its rows keep the `grp-<firstId>` naming.
+     */
+    nextSessionIds(count: number): Promise<number[]>
+
+    // --- Settlements (the only stored payment fact) ---
+    listSettlements(): Promise<PaymentSettlement[]>
+    getSettlement(
+        studentId: number,
+        month: string
+    ): Promise<PaymentSettlement | undefined>
+    /** Creates or replaces the settlement for one (student, month). */
+    putSettlement(settlement: PaymentSettlement): Promise<void>
+}

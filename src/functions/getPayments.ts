@@ -51,7 +51,7 @@ export async function getPayments(
         query.status = status as PaymentStatus
     }
 
-    const payments = listPayments(query)
+    const payments = await listPayments(query)
     context.log(`Returning ${payments.length} payment records`)
     return ok(payments)
 }

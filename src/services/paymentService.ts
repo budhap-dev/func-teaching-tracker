@@ -1,4 +1,4 @@
-import { billingYear, store } from '../data/store'
+import { billingYear, dataStore } from '../data/store'
 import {
     derivePaymentStatus,
     MonthlyPaymentGroup,
@@ -9,7 +9,7 @@ import {
     PaymentStatus,
     PaymentSettlement,
 } from '../models/payment'
-import { wasHeld } from '../models/session'
+import { ScheduledSession, wasHeld } from '../models/session'
 import { Student } from '../models/student'
 
 /** Today as YYYY-MM-DD. Isolated here so tests can stub one function. */
@@ -22,26 +22,28 @@ const billableMonths = (): string[] =>
         (_, index) => `${billingYear}-${String(index + 1).padStart(2, '0')}`
     )
 
-/** Classes for a student in a month that actually took place by `today`. */
-const sessionsHeldIn = (
-    studentId: number,
-    month: string,
-    today: string
-): number =>
-    store.sessions.filter(
-        (session) =>
-            session.studentId === studentId &&
-            session.date.startsWith(month) &&
-            wasHeld(session, today)
-    ).length
+/**
+ * A "classes held" counter over a fetched-once snapshot of sessions — the
+ * durable store is read once per request, not once per (student, month) cell.
+ */
+const heldCounter =
+    (sessions: ScheduledSession[], today: string) =>
+    (studentId: number, month: string): number =>
+        sessions.filter(
+            (session) =>
+                session.studentId === studentId &&
+                session.date.startsWith(month) &&
+                wasHeld(session, today)
+        ).length
 
-const findSettlement = (
-    studentId: number,
-    month: string
-): PaymentSettlement | undefined =>
-    store.settlements.find(
-        (item) => item.studentId === studentId && item.month === month
+/** A settlement lookup over a fetched-once snapshot, keyed (studentId, month). */
+const settlementLookup = (settlements: PaymentSettlement[]) => {
+    const byKey = new Map(
+        settlements.map((item) => [`${item.studentId}_${item.month}`, item])
     )
+    return (studentId: number, month: string): PaymentSettlement | undefined =>
+        byKey.get(`${studentId}_${month}`)
+}
 
 /**
  * Builds a student's bill for one month from the classes that took place.
@@ -51,11 +53,10 @@ const buildRecord = (
     student: Student,
     month: string,
     monthIndex: number,
-    today: string
+    sessionsHeld: number,
+    settlement: PaymentSettlement | undefined
 ): PaymentRecord => {
-    const sessionsHeld = sessionsHeldIn(student.id, month, today)
     const amountDue = sessionsHeld * student.fees
-    const settlement = findSettlement(student.id, month)
     const amountPaid = settlement?.amountPaid ?? 0
 
     return {
@@ -74,14 +75,29 @@ const buildRecord = (
 }
 
 /** Returns payment records, optionally filtered by studentId, month or status. */
-export const listPayments = (query: PaymentQuery = {}): PaymentRecord[] => {
+export const listPayments = async (
+    query: PaymentQuery = {}
+): Promise<PaymentRecord[]> => {
     const today = todayIso()
     const months = billableMonths()
+    const [students, sessions, settlements] = await Promise.all([
+        dataStore.listStudents(),
+        dataStore.listSessions(),
+        dataStore.listSettlements(),
+    ])
+    const heldIn = heldCounter(sessions, today)
+    const settlementFor = settlementLookup(settlements)
 
-    return store.students
+    return students
         .flatMap((student) =>
             months.map((month, monthIndex) =>
-                buildRecord(student, month, monthIndex, today)
+                buildRecord(
+                    student,
+                    month,
+                    monthIndex,
+                    heldIn(student.id, month),
+                    settlementFor(student.id, month)
+                )
             )
         )
         .filter((record) => {
@@ -102,19 +118,19 @@ export const listPayments = (query: PaymentQuery = {}): PaymentRecord[] => {
 }
 
 /** Groups payment records by month (ascending), with per-month totals. */
-export const listPaymentsByMonth = (
+export const listPaymentsByMonth = async (
     query: PaymentQuery = {}
-): MonthlyPaymentGroup[] => {
+): Promise<MonthlyPaymentGroup[]> => {
     const byMonth = new Map<string, PaymentRecord[]>()
 
-    listPayments(query).forEach((record) => {
+    for (const record of await listPayments(query)) {
         const existing = byMonth.get(record.month)
         if (existing) {
             existing.push(record)
         } else {
             byMonth.set(record.month, [record])
         }
-    })
+    }
 
     return [...byMonth.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
@@ -138,42 +154,48 @@ export const listPaymentsByMonth = (
  * Records a payment against a student's month.
  * Omitting `amountPaid` settles the month in full — "mark as paid".
  */
-export const savePayments = (inputs: PaymentInput[]): PaymentRecord[] =>
-    inputs.map((input) => {
-        const today = todayIso()
-        const monthIndex = billableMonths().indexOf(input.month)
-        const student = store.students.find(
-            (item) => item.id === input.studentId
-        )!
+export const savePayments = async (
+    inputs: PaymentInput[]
+): Promise<PaymentRecord[]> => {
+    const today = todayIso()
+    const months = billableMonths()
+    const heldIn = heldCounter(await dataStore.listSessions(), today)
+
+    const records: PaymentRecord[] = []
+    for (const input of inputs) {
+        const monthIndex = months.indexOf(input.month)
+        const student = (await dataStore.getStudent(input.studentId))!
+        const sessionsHeld = heldIn(input.studentId, input.month)
 
         // Settling in full means paying exactly what the classes taught so far
         // come to — never a figure typed in the hope it matches.
-        const amountDue = sessionsHeldIn(input.studentId, input.month, today) * student.fees
+        const amountDue = sessionsHeld * student.fees
         const amountPaid = input.amountPaid ?? amountDue
 
-        const existing = findSettlement(input.studentId, input.month)
-        if (existing) {
-            existing.amountPaid = amountPaid
-            if (input.notes !== undefined) {
-                existing.notes = input.notes
-            }
-        } else {
-            store.settlements.push({
-                studentId: input.studentId,
-                month: input.month,
-                amountPaid,
-                notes: input.notes ?? '',
-            })
+        const existing = await dataStore.getSettlement(
+            input.studentId,
+            input.month
+        )
+        const settlement: PaymentSettlement = {
+            studentId: input.studentId,
+            month: input.month,
+            amountPaid,
+            notes: input.notes ?? existing?.notes ?? '',
         }
+        await dataStore.putSettlement(settlement)
 
-        return buildRecord(student, input.month, monthIndex, today)
-    })
+        records.push(
+            buildRecord(student, input.month, monthIndex, sessionsHeld, settlement)
+        )
+    }
+    return records
+}
 
 /** Validates a raw save payload, returning an error string when invalid. */
-export const validatePaymentInput = (
+export const validatePaymentInput = async (
     input: Partial<PaymentInput>,
     index: number
-): string | undefined => {
+): Promise<string | undefined> => {
     const at = `payments[${index}]`
     if (!input || typeof input !== 'object') {
         return `${at} must be a payment object.`
@@ -181,7 +203,8 @@ export const validatePaymentInput = (
     if (typeof input.studentId !== 'number') {
         return `${at}.studentId is required and must be a number.`
     }
-    if (!store.students.some((student) => student.id === input.studentId)) {
+    const students = await dataStore.listStudents()
+    if (!students.some((student) => student.id === input.studentId)) {
         return `${at}.studentId ${input.studentId} is not a known student.`
     }
     if (!input.month || !/^\d{4}-\d{2}$/.test(input.month)) {
