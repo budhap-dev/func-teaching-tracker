@@ -23,6 +23,14 @@ export interface Student {
     parentName: string
     contactNumber: string
     address: string
+    /** Archived students have finished tutoring: they leave the active roster
+        for the teacher-only Alumni view but keep all their history (REQ-013).
+        Absent/false means active — older records are unaffected. */
+    isArchived?: boolean
+    /** ISO date the student was archived — the retention-window anchor. */
+    archivedOn?: string
+    /** The teacher's closing note, kept through archive and restore. */
+    archiveNotes?: string
 }
 
 /** Payload accepted by the upsert endpoint. `id` is optional (create vs. update). */
