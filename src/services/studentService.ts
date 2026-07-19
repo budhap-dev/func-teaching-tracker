@@ -77,6 +77,64 @@ export const deleteStudent = async (id: number): Promise<boolean> => {
     return true
 }
 
+/** Today as YYYY-MM-DD. */
+const todayIso = (): string => new Date().toISOString().slice(0, 10)
+
+export type ArchiveOutcome =
+    | { ok: true; student: Student; cancelledCount: number }
+    | { ok: false; reason: 'not-found' }
+
+/**
+ * Archives a student (REQ-013): they leave the active roster for Alumni but
+ * keep all history. Any class still to come is **cancelled** as part of the
+ * archive — a leaver stops generating bills, and the teacher does it in one
+ * step rather than clearing the calendar by hand first. Cancelled classes
+ * stay on the record (never deleted), so history is intact. A closing note is
+ * required (enforced by the handler). Restore is the mirror; the note and the
+ * cancellations both stand (restoring the student does not un-cancel classes).
+ */
+export const archiveStudent = async (
+    id: number,
+    notes: string
+): Promise<ArchiveOutcome> => {
+    const student = await dataStore.getStudent(id)
+    if (!student) {
+        return { ok: false, reason: 'not-found' }
+    }
+    const today = todayIso()
+    const sessions = await dataStore.listSessions()
+    const futureClasses = sessions.filter(
+        (session) =>
+            session.studentId === id &&
+            session.status !== 'Cancelled' &&
+            session.date > today
+    )
+    for (const session of futureClasses) {
+        await dataStore.putSession({ ...session, status: 'Cancelled' })
+    }
+    const archived: Student = {
+        ...student,
+        isArchived: true,
+        archivedOn: today,
+        archiveNotes: notes,
+    }
+    await dataStore.putStudent(archived)
+    return { ok: true, student: archived, cancelledCount: futureClasses.length }
+}
+
+/** Returns an archived student to the active roster, keeping the note. */
+export const restoreStudent = async (
+    id: number
+): Promise<Student | undefined> => {
+    const student = await dataStore.getStudent(id)
+    if (!student) {
+        return undefined
+    }
+    const restored: Student = { ...student, isArchived: false }
+    await dataStore.putStudent(restored)
+    return restored
+}
+
 /**
  * Keeps the per-subject map honest after any write: entries for subjects the
  * student no longer studies are dropped, an emptied map is removed entirely,

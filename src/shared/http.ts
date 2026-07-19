@@ -39,6 +39,12 @@ export const notFound = (message: string): HttpResponseInit => ({
 /** 204 No Content — a successful action with nothing to return (e.g. delete). */
 export const noContent = (): HttpResponseInit => ({ status: 204 })
 
+/** 409 Conflict — the request clashes with the resource's current state. */
+export const conflict = (message: string): HttpResponseInit => ({
+    status: 409,
+    jsonBody: { error: message },
+})
+
 /**
  * Parses a request JSON body, returning `undefined` when the body is empty or
  * not valid JSON. Callers should validate the returned shape.
