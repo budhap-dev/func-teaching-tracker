@@ -78,6 +78,68 @@ export const getSessionById = (
     id: number
 ): Promise<ScheduledSession | undefined> => dataStore.getSession(id)
 
+export type AddMemberOutcome =
+    | { ok: true; rows: ScheduledSession[] }
+    | {
+          ok: false
+          reason: 'session-not-found' | 'student-not-found' | 'already-member'
+      }
+
+/**
+ * Adds a student to an existing class. A solo class is promoted to a group
+ * (the original row gains a shared groupId); a group class gains one more row
+ * with that same groupId and the class's date/time/subject/duration. If the
+ * student was previously removed (has a cancelled row in the group) their row
+ * is restored rather than duplicated. Returns every row of the group.
+ */
+export const addSessionMember = async (
+    sessionId: number,
+    studentId: number
+): Promise<AddMemberOutcome> => {
+    const session = await dataStore.getSession(sessionId)
+    if (!session) {
+        return { ok: false, reason: 'session-not-found' }
+    }
+    const student = await dataStore.getStudent(studentId)
+    if (!student) {
+        return { ok: false, reason: 'student-not-found' }
+    }
+
+    // Solo → group: give the existing row a groupId so the new member can share it.
+    let groupId = session.groupId
+    if (!groupId) {
+        groupId = `grp-${session.id}`
+        await dataStore.putSession({ ...session, groupId })
+    }
+
+    const members = await dataStore.listSessionsByGroup(groupId)
+    const existing = members.find((row) => row.studentId === studentId)
+    if (existing) {
+        if (existing.status !== 'Cancelled') {
+            return { ok: false, reason: 'already-member' }
+        }
+        // Previously removed — bring their row back rather than duplicate it.
+        await dataStore.putSession({ ...existing, status: 'Scheduled' })
+        return { ok: true, rows: await dataStore.listSessionsByGroup(groupId) }
+    }
+
+    const [newId] = await dataStore.nextSessionIds(1)
+    await dataStore.putSession({
+        id: newId,
+        studentId,
+        studentName: `${student.firstName} ${student.lastName}`,
+        year: student.year,
+        subject: session.subject,
+        date: session.date,
+        time: session.time,
+        durationMinutes: session.durationMinutes ?? 60,
+        groupId,
+        notes: session.notes,
+        status: 'Scheduled',
+    })
+    return { ok: true, rows: await dataStore.listSessionsByGroup(groupId) }
+}
+
 /**
  * Applies a partial update to a class: its details, its status, or both. Only
  * the fields present in `update` change. Cancelling (status) never deletes the
