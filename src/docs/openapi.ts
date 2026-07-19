@@ -115,6 +115,23 @@ export const openApiDocument = {
                     parentName: { type: 'string', example: 'Byron Lovelace' },
                     contactNumber: { type: 'string', example: '+44 7700 900123' },
                     address: { type: 'string' },
+                    isArchived: {
+                        type: 'boolean',
+                        description:
+                            'True once moved to Alumni (REQ-013). Absent/false means active; older records are unaffected.',
+                        example: false,
+                    },
+                    archivedOn: {
+                        type: 'string',
+                        format: 'date',
+                        description:
+                            'ISO date the student was archived — the retention-window anchor.',
+                    },
+                    archiveNotes: {
+                        type: 'string',
+                        description:
+                            "The teacher's closing note, kept through archive and restore.",
+                    },
                 },
                 required: [
                     'id',
@@ -550,6 +567,72 @@ export const openApiDocument = {
                 parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
                 responses: {
                     '204': { description: 'Erased.' },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/students/{id}/archive': {
+            post: {
+                tags: ['Students'],
+                summary: 'Archive a student to Alumni',
+                description:
+                    'Moves the student off the active roster to the teacher-only Alumni view, keeping all their history (REQ-013). Any future class is cancelled as part of the archive. A closing note is required.',
+                operationId: 'archiveStudent',
+                parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    notes: {
+                                        type: 'string',
+                                        description: 'Closing note (required).',
+                                        example: 'Finished GCSE course — great result.',
+                                    },
+                                },
+                                required: ['notes'],
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'Archived. Returns the updated student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/students/{id}/restore': {
+            post: {
+                tags: ['Students'],
+                summary: 'Restore an archived student',
+                description:
+                    'Returns an archived student to the active roster (REQ-013). The closing note is kept, as a record of the past.',
+                operationId: 'restoreStudent',
+                parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
+                responses: {
+                    '200': {
+                        description: 'Restored. Returns the updated student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
                     '400': { $ref: '#/components/responses/BadRequest' },
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
