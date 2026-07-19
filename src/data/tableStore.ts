@@ -301,6 +301,15 @@ export class TableStore implements DataStore {
         await this.sessions.upsertEntity(toSessionRow(session), 'Replace')
     }
 
+    async deleteSession(id: number): Promise<void> {
+        await this.sessions
+            .deleteEntity(SESSION_PK, pad(id, SESSION_WIDTH))
+            .catch((error) => {
+                // Already gone is fine — deleting a class is idempotent.
+                if (!notFound(error)) throw error
+            })
+    }
+
     async nextSessionIds(count: number): Promise<number[]> {
         return this.reserveIds('session', count)
     }

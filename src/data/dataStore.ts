@@ -36,6 +36,8 @@ export interface DataStore {
     listSessionsByGroup(groupId: string): Promise<ScheduledSession[]>
     /** Creates or replaces a session by id. */
     putSession(session: ScheduledSession): Promise<void>
+    /** Permanently removes a session row by id — a real delete, not a cancel. */
+    deleteSession(id: number): Promise<void>
     /**
      * Reserves `count` contiguous numeric session ids — a group booking takes
      * its whole block at once, so its rows keep the `grp-<firstId>` naming.
