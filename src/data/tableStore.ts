@@ -102,6 +102,11 @@ const toStudentRow = (s: Student): Row => ({
     parentName: s.parentName,
     contactNumber: s.contactNumber,
     address: s.address,
+    // Archive fields (REQ-013). Written only when set; putStudent replaces the
+    // whole entity, so restoring (isArchived false) simply drops isArchived.
+    ...(s.isArchived ? { isArchived: true } : {}),
+    ...(s.archivedOn ? { archivedOn: s.archivedOn } : {}),
+    ...(s.archiveNotes ? { archiveNotes: s.archiveNotes } : {}),
 })
 
 const fromStudentRow = (e: Row): Student => ({
@@ -127,6 +132,9 @@ const fromStudentRow = (e: Row): Student => ({
     parentName: e.parentName as string,
     contactNumber: e.contactNumber as string,
     address: e.address as string,
+    ...(e.isArchived ? { isArchived: true } : {}),
+    ...(e.archivedOn ? { archivedOn: e.archivedOn as string } : {}),
+    ...(e.archiveNotes ? { archiveNotes: e.archiveNotes as string } : {}),
 })
 
 const toSessionRow = (s: ScheduledSession): Row => ({
