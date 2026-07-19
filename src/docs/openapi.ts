@@ -1,0 +1,776 @@
+/**
+ * OpenAPI 3.0 description of the Teaching Tracker API.
+ *
+ * Kept as a typed module beside the handlers (not a separate swagger.json) so
+ * it ships and versions with the code. Two anonymous endpoints expose it:
+ * `GET /api/openapi.json` (this document) and `GET /api/docs` (a Scalar UI
+ * rendered from it). The shapes below mirror `src/models/*` and the validation
+ * rules in `src/services/*`; keep them in step when either changes.
+ */
+
+const bearer = [{ bearerAuth: [] as string[] }]
+
+/** The spec object. Loosely typed on purpose — it is data, not code. */
+export const openApiDocument = {
+    openapi: '3.0.3',
+    info: {
+        title: 'Teaching Tracker API',
+        version: '1.0.0',
+        description: [
+            'Azure Functions API for a private tutor: students, scheduled',
+            'classes, and monthly payments.',
+            '',
+            '**Authentication.** Every endpoint below is a *teacher* endpoint,',
+            'guarded by an Entra (Azure AD) v2.0 bearer access token carrying the',
+            '`access_as_teacher` scope, whose account must be on the Key Vault',
+            'allow-list. Enforcement is gated by the `AUTH_ENFORCED` app setting:',
+            'while it is `false` the same checks run but the request is let',
+            'through with the verdict logged, so the not-yet-authenticated',
+            'frontend keeps working. The docs endpoints themselves are public.',
+        ].join('\n'),
+    },
+    servers: [
+        { url: 'http://localhost:7071/api', description: 'Local (func start)' },
+        {
+            url: 'https://{functionAppName}.azurewebsites.net/api',
+            description: 'Azure',
+            variables: {
+                functionAppName: {
+                    default: 'func-teaching-tracker',
+                    description: 'Your Function App name',
+                },
+            },
+        },
+    ],
+    tags: [
+        { name: 'Students', description: 'Tutored students (REQ-009).' },
+        { name: 'Sessions', description: 'Scheduled classes, solo or group.' },
+        { name: 'Payments', description: 'Monthly bills and settlements.' },
+    ],
+    components: {
+        securitySchemes: {
+            bearerAuth: {
+                type: 'http',
+                scheme: 'bearer',
+                bearerFormat: 'JWT',
+                description:
+                    'Entra v2.0 access token with the `access_as_teacher` scope.',
+            },
+        },
+        schemas: {
+            Error: {
+                type: 'object',
+                properties: { error: { type: 'string' } },
+                required: ['error'],
+                example: { error: 'firstName is required.' },
+            },
+
+            // ---- Students ----------------------------------------------
+            Student: {
+                type: 'object',
+                description: 'A tutored student.',
+                properties: {
+                    id: { type: 'integer', example: 7 },
+                    studentId: {
+                        type: 'string',
+                        description: 'Human-facing code, e.g. STU-4F9K2Q.',
+                        example: 'STU-4F9K2Q',
+                    },
+                    firstName: { type: 'string', example: 'Ada' },
+                    lastName: { type: 'string', example: 'Lovelace' },
+                    dob: { type: 'string', format: 'date', example: '2009-12-10' },
+                    subjects: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        example: ['Maths', 'Physics'],
+                    },
+                    school: { type: 'string', example: 'Crownwood High' },
+                    year: { type: 'string', example: 'Year 10' },
+                    progress: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 100,
+                        description:
+                            'Blended 0–100 figure. When progressBySubject is present the API keeps this as the rounded average of its values.',
+                        example: 72,
+                    },
+                    progressBySubject: {
+                        type: 'object',
+                        additionalProperties: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 100,
+                        },
+                        description: 'Progress per studied subject (0–100).',
+                        example: { Maths: 80, Physics: 64 },
+                    },
+                    mode: { $ref: '#/components/schemas/StudentMode' },
+                    fees: {
+                        type: 'number',
+                        minimum: 0,
+                        description: 'Agreed price for a single session, in GBP.',
+                        example: 35,
+                    },
+                    notes: { type: 'string' },
+                    parentName: { type: 'string', example: 'Byron Lovelace' },
+                    contactNumber: { type: 'string', example: '+44 7700 900123' },
+                    address: { type: 'string' },
+                },
+                required: [
+                    'id',
+                    'studentId',
+                    'firstName',
+                    'lastName',
+                    'subjects',
+                    'progress',
+                    'mode',
+                    'fees',
+                ],
+            },
+            StudentMode: {
+                type: 'string',
+                enum: ['Online', 'Face to Face', 'Both'],
+                description: 'Defaults to "Face to Face" when omitted.',
+            },
+            StudentInput: {
+                type: 'object',
+                description:
+                    'Upsert payload. `id` omitted (POST) creates; `id` present, or a PUT route id, updates. Only firstName and lastName are required.',
+                properties: {
+                    id: { type: 'integer' },
+                    studentId: { type: 'string' },
+                    firstName: { type: 'string', example: 'Ada' },
+                    lastName: { type: 'string', example: 'Lovelace' },
+                    dob: { type: 'string', format: 'date' },
+                    subjects: { type: 'array', items: { type: 'string' } },
+                    school: { type: 'string' },
+                    year: { type: 'string' },
+                    progress: { type: 'number', minimum: 0, maximum: 100 },
+                    progressBySubject: {
+                        type: 'object',
+                        additionalProperties: {
+                            type: 'number',
+                            minimum: 0,
+                            maximum: 100,
+                        },
+                    },
+                    mode: { $ref: '#/components/schemas/StudentMode' },
+                    fees: { type: 'number', minimum: 0 },
+                    notes: { type: 'string' },
+                    parentName: { type: 'string' },
+                    contactNumber: { type: 'string' },
+                    address: { type: 'string' },
+                },
+                required: ['firstName', 'lastName'],
+            },
+
+            // ---- Sessions ----------------------------------------------
+            SessionStatus: {
+                type: 'string',
+                enum: ['Scheduled', 'Cancelled'],
+            },
+            ScheduledSession: {
+                type: 'object',
+                description: 'A scheduled class for a student.',
+                properties: {
+                    id: { type: 'integer', example: 42 },
+                    studentId: { type: 'integer', example: 7 },
+                    studentName: { type: 'string', example: 'Ada Lovelace' },
+                    year: { type: 'string', example: 'Year 10' },
+                    subject: { type: 'string', example: 'Maths' },
+                    date: { type: 'string', format: 'date', example: '2026-07-20' },
+                    time: {
+                        type: 'string',
+                        pattern: '^\\d{2}:\\d{2}$',
+                        example: '17:00',
+                    },
+                    durationMinutes: {
+                        type: 'integer',
+                        enum: [30, 60, 90, 120],
+                        example: 60,
+                    },
+                    groupId: {
+                        type: 'string',
+                        description:
+                            'Links the rows of a group class; absent on a solo class.',
+                        example: 'grp-42',
+                    },
+                    notes: { type: 'string' },
+                    status: { $ref: '#/components/schemas/SessionStatus' },
+                },
+                required: [
+                    'id',
+                    'studentId',
+                    'studentName',
+                    'subject',
+                    'date',
+                    'time',
+                    'durationMinutes',
+                    'status',
+                ],
+            },
+            SessionInput: {
+                type: 'object',
+                description:
+                    'Create payload. Provide `studentId` for a solo class, or a non-empty `studentIds` for a group class. durationMinutes defaults when omitted.',
+                properties: {
+                    studentId: { type: 'integer', example: 7 },
+                    studentIds: {
+                        type: 'array',
+                        items: { type: 'integer' },
+                        description: 'Two or more books a group class.',
+                        example: [7, 8, 9],
+                    },
+                    studentName: { type: 'string' },
+                    year: { type: 'string' },
+                    subject: { type: 'string', example: 'Maths' },
+                    date: { type: 'string', format: 'date', example: '2026-07-20' },
+                    time: {
+                        type: 'string',
+                        pattern: '^\\d{2}:\\d{2}$',
+                        example: '17:00',
+                    },
+                    durationMinutes: {
+                        type: 'integer',
+                        enum: [30, 60, 90, 120],
+                    },
+                    notes: { type: 'string' },
+                },
+                required: ['subject', 'date', 'time'],
+            },
+            SessionUpdate: {
+                type: 'object',
+                description:
+                    'Edit and/or cancel/restore a class. Every field is optional but at least one must be present.',
+                properties: {
+                    studentId: { type: 'integer' },
+                    studentName: { type: 'string' },
+                    year: { type: 'string' },
+                    subject: { type: 'string' },
+                    date: { type: 'string', format: 'date' },
+                    time: { type: 'string', pattern: '^\\d{2}:\\d{2}$' },
+                    durationMinutes: {
+                        type: 'integer',
+                        enum: [30, 60, 90, 120],
+                    },
+                    notes: { type: 'string' },
+                    status: { $ref: '#/components/schemas/SessionStatus' },
+                    applyToGroup: {
+                        type: 'boolean',
+                        description:
+                            'Apply this update to every row sharing the session’s groupId.',
+                    },
+                },
+                minProperties: 1,
+                example: { status: 'Cancelled' },
+            },
+
+            // ---- Payments ----------------------------------------------
+            PaymentStatus: {
+                type: 'string',
+                enum: ['Paid', 'Partial', 'Pending'],
+            },
+            PaymentRecord: {
+                type: 'object',
+                description:
+                    "A student's bill for one month. amountDue is derived from the classes that took place; only amountPaid/notes are stored.",
+                properties: {
+                    id: { type: 'integer' },
+                    studentId: { type: 'integer', example: 7 },
+                    studentName: { type: 'string', example: 'Ada Lovelace' },
+                    month: {
+                        type: 'string',
+                        pattern: '^\\d{4}-\\d{2}$',
+                        example: '2026-07',
+                    },
+                    feePerSession: { type: 'number', example: 35 },
+                    sessionsHeld: { type: 'integer', example: 4 },
+                    amountDue: {
+                        type: 'number',
+                        description: 'feePerSession × sessionsHeld.',
+                        example: 140,
+                    },
+                    amountPaid: { type: 'number', example: 100 },
+                    outstanding: {
+                        type: 'number',
+                        description: 'amountDue − amountPaid, never below zero.',
+                        example: 40,
+                    },
+                    status: { $ref: '#/components/schemas/PaymentStatus' },
+                    notes: { type: 'string' },
+                },
+                required: [
+                    'id',
+                    'studentId',
+                    'studentName',
+                    'month',
+                    'feePerSession',
+                    'sessionsHeld',
+                    'amountDue',
+                    'amountPaid',
+                    'outstanding',
+                    'status',
+                ],
+            },
+            PaymentInput: {
+                type: 'object',
+                description:
+                    'Records a payment. Omit amountPaid to settle the month in full ("mark as paid"). month must be a month of the billing year.',
+                properties: {
+                    studentId: { type: 'integer', example: 7 },
+                    month: {
+                        type: 'string',
+                        pattern: '^\\d{4}-\\d{2}$',
+                        example: '2026-07',
+                    },
+                    amountPaid: { type: 'number', minimum: 0, example: 100 },
+                    notes: { type: 'string' },
+                },
+                required: ['studentId', 'month'],
+            },
+            MonthlyPaymentGroup: {
+                type: 'object',
+                description: 'Payment records for one month, with totals.',
+                properties: {
+                    month: { type: 'string', pattern: '^\\d{4}-\\d{2}$' },
+                    totalDue: { type: 'number' },
+                    totalReceived: { type: 'number' },
+                    totalOutstanding: { type: 'number' },
+                    sessionsHeld: {
+                        type: 'integer',
+                        description: 'Classes taught across every student this month.',
+                    },
+                    records: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/PaymentRecord' },
+                    },
+                },
+                required: [
+                    'month',
+                    'totalDue',
+                    'totalReceived',
+                    'totalOutstanding',
+                    'sessionsHeld',
+                    'records',
+                ],
+            },
+        },
+        responses: {
+            BadRequest: {
+                description: 'Validation failed.',
+                content: {
+                    'application/json': {
+                        schema: { $ref: '#/components/schemas/Error' },
+                    },
+                },
+            },
+            Unauthorized: {
+                description: 'Missing, invalid, or expired bearer token.',
+                content: {
+                    'application/json': {
+                        schema: { $ref: '#/components/schemas/Error' },
+                    },
+                },
+            },
+            Forbidden: {
+                description: 'Valid token, but not an allowed teacher.',
+                content: {
+                    'application/json': {
+                        schema: { $ref: '#/components/schemas/Error' },
+                    },
+                },
+            },
+            NotFound: {
+                description: 'No such resource.',
+                content: {
+                    'application/json': {
+                        schema: { $ref: '#/components/schemas/Error' },
+                    },
+                },
+            },
+        },
+        parameters: {
+            StudentIdPath: {
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'Numeric student id.',
+                schema: { type: 'integer' },
+            },
+            SessionIdPath: {
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'Numeric session id.',
+                schema: { type: 'integer' },
+            },
+            StudentIdQuery: {
+                name: 'studentId',
+                in: 'query',
+                required: false,
+                schema: { type: 'integer' },
+            },
+            MonthQuery: {
+                name: 'month',
+                in: 'query',
+                required: false,
+                schema: { type: 'string', pattern: '^\\d{4}-\\d{2}$' },
+            },
+            PaymentStatusQuery: {
+                name: 'status',
+                in: 'query',
+                required: false,
+                schema: { $ref: '#/components/schemas/PaymentStatus' },
+            },
+        },
+    },
+    // Applied to every operation; individual ops don't repeat it.
+    security: bearer,
+    paths: {
+        '/students': {
+            get: {
+                tags: ['Students'],
+                summary: 'List all students',
+                operationId: 'getStudents',
+                responses: {
+                    '200': {
+                        description: 'Every student.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/Student' },
+                                },
+                            },
+                        },
+                    },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+            post: {
+                tags: ['Students'],
+                summary: 'Create or update a student',
+                description: 'Creates when the body carries no id, updates when it does.',
+                operationId: 'upsertStudent',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/StudentInput' },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'Updated existing student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '201': {
+                        description: 'Created a new student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+        '/students/{id}': {
+            get: {
+                tags: ['Students'],
+                summary: 'Get a student by id',
+                operationId: 'getStudent',
+                parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
+                responses: {
+                    '200': {
+                        description: 'The student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+            put: {
+                tags: ['Students'],
+                summary: 'Update the student at this id',
+                description: 'The route id takes precedence over any id in the body.',
+                operationId: 'upsertStudentById',
+                parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/StudentInput' },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'Updated student.',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '201': {
+                        description: 'Created (id not previously present).',
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/Student' },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+            delete: {
+                tags: ['Students'],
+                summary: 'Erase a student and all their data',
+                description:
+                    'Cascade delete of the student, their sessions and settlements (GDPR right to erasure, REQ-009 §10).',
+                operationId: 'deleteStudent',
+                parameters: [{ $ref: '#/components/parameters/StudentIdPath' }],
+                responses: {
+                    '204': { description: 'Erased.' },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/sessions': {
+            get: {
+                tags: ['Sessions'],
+                summary: 'List scheduled classes',
+                description: 'Date-ordered. Optionally filter by studentId.',
+                operationId: 'getSessions',
+                parameters: [{ $ref: '#/components/parameters/StudentIdQuery' }],
+                responses: {
+                    '200': {
+                        description: 'Scheduled sessions.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/ScheduledSession',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+            post: {
+                tags: ['Sessions'],
+                summary: 'Schedule a new class',
+                description:
+                    'Books a solo class (studentId) or a group class (studentIds). A solo booking returns a single object; a group booking returns the array of rows.',
+                operationId: 'createSession',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/SessionInput' },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'Scheduled. Object for solo, array for group.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    oneOf: [
+                                        {
+                                            $ref: '#/components/schemas/ScheduledSession',
+                                        },
+                                        {
+                                            type: 'array',
+                                            items: {
+                                                $ref: '#/components/schemas/ScheduledSession',
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+        '/sessions/{id}': {
+            put: {
+                tags: ['Sessions'],
+                summary: 'Edit and/or cancel/restore a class',
+                description:
+                    'Body is any non-empty subset of the class fields. With applyToGroup=true the change spans the whole group, and the array of affected rows is returned; otherwise the single updated object.',
+                operationId: 'updateSession',
+                parameters: [{ $ref: '#/components/parameters/SessionIdPath' }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/SessionUpdate' },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'Updated. Object for one row, array for a group.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    oneOf: [
+                                        {
+                                            $ref: '#/components/schemas/ScheduledSession',
+                                        },
+                                        {
+                                            type: 'array',
+                                            items: {
+                                                $ref: '#/components/schemas/ScheduledSession',
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/payments': {
+            get: {
+                tags: ['Payments'],
+                summary: 'List payment records',
+                operationId: 'getPayments',
+                parameters: [
+                    { $ref: '#/components/parameters/StudentIdQuery' },
+                    { $ref: '#/components/parameters/MonthQuery' },
+                    { $ref: '#/components/parameters/PaymentStatusQuery' },
+                ],
+                responses: {
+                    '200': {
+                        description: 'Matching payment records.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/PaymentRecord',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+            post: {
+                tags: ['Payments'],
+                summary: 'Record one or more payments',
+                description:
+                    'Accepts a single payment object or an array. Each is matched by (studentId, month) and upserted. Returns the saved records.',
+                operationId: 'savePayments',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                oneOf: [
+                                    { $ref: '#/components/schemas/PaymentInput' },
+                                    {
+                                        type: 'array',
+                                        items: {
+                                            $ref: '#/components/schemas/PaymentInput',
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'Saved payment records.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/PaymentRecord',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+        '/payments/by-month': {
+            get: {
+                tags: ['Payments'],
+                summary: 'Payment records grouped by month',
+                description:
+                    'Each group carries totalDue / totalReceived / totalOutstanding and sessionsHeld.',
+                operationId: 'getPaymentsByMonth',
+                parameters: [
+                    { $ref: '#/components/parameters/StudentIdQuery' },
+                    { $ref: '#/components/parameters/PaymentStatusQuery' },
+                ],
+                responses: {
+                    '200': {
+                        description: 'Monthly payment groups.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/MonthlyPaymentGroup',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+    },
+} as const

@@ -66,6 +66,21 @@ Base URL when running locally: `http://localhost:7071/api`
 | POST       | `/sessions`          | Schedule a new class                           |
 | PUT        | `/sessions/{id}`     | Cancel / un-cancel a class                     |
 
+### Interactive reference
+
+The API describes itself. Two public, ungated endpoints ship with it:
+
+| Method | Route            | Description                                             |
+| ------ | ---------------- | ------------------------------------------------------ |
+| GET    | `/docs`          | Interactive API reference ([Scalar](https://scalar.com)) |
+| GET    | `/openapi.json`  | The OpenAPI 3.0 spec that drives it                    |
+
+Locally: <http://localhost:7071/api/docs>. The spec lives as a typed module at
+[src/docs/openapi.ts](src/docs/openapi.ts), so it deploys and versions with the
+code — keep it in step with `src/models` and the service validators when they
+change. `openapi.json` also imports straight into Postman, Insomnia, or any
+client generator.
+
 ### Per-environment data
 
 The dataset is selected by the `ENVIRONMENT` app setting (set per environment by
