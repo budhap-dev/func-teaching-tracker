@@ -37,7 +37,7 @@ export async function upsertStudentHandler(
         body.id = routeId
     }
 
-    const result = upsertStudent(body)
+    const result = await upsertStudent(body)
     context.log(
         `${result.created ? 'Created' : 'Updated'} student ${result.student.id}`
     )

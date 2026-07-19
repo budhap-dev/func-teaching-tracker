@@ -31,7 +31,7 @@ export async function getSessions(
         }
     }
 
-    const sessions = listSessions(studentId)
+    const sessions = await listSessions(studentId)
     context.log(`Returning ${sessions.length} scheduled sessions`)
     return ok(sessions)
 }

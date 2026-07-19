@@ -25,7 +25,7 @@ export async function createSessionHandler(
         return badRequest(error ?? 'Invalid request body.')
     }
 
-    const sessions = createSessions(body)
+    const sessions = await createSessions(body)
     context.log(
         `Scheduled ${sessions.length === 1 ? `session ${sessions[0].id}` : `group of ${sessions.length} (${sessions[0].groupId})`}`
     )

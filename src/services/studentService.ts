@@ -1,4 +1,4 @@
-import { store } from '../data/store'
+import { dataStore } from '../data/store'
 import {
     generateStudentCode,
     Student,
@@ -9,11 +9,11 @@ import {
 const validModes: StudentMode[] = ['Online', 'Face to Face', 'Both']
 
 /** Returns all students. */
-export const listStudents = (): Student[] => store.students
+export const listStudents = (): Promise<Student[]> => dataStore.listStudents()
 
 /** Returns a single student by numeric id, or `undefined` if not found. */
-export const getStudentById = (id: number): Student | undefined =>
-    store.students.find((student) => student.id === id)
+export const getStudentById = (id: number): Promise<Student | undefined> =>
+    dataStore.getStudent(id)
 
 export interface UpsertResult {
     student: Student
@@ -25,18 +25,27 @@ export interface UpsertResult {
  * - When `input.id` matches an existing student, that record is patched.
  * - Otherwise a new student is created with a fresh id and student code.
  */
-export const upsertStudent = (input: StudentInput): UpsertResult => {
+export const upsertStudent = async (
+    input: StudentInput
+): Promise<UpsertResult> => {
     const existing =
-        typeof input.id === 'number' ? getStudentById(input.id) : undefined
+        typeof input.id === 'number'
+            ? await dataStore.getStudent(input.id)
+            : undefined
 
     if (existing) {
-        Object.assign(existing, sanitize(input), { id: existing.id })
-        reconcileProgress(existing)
-        return { student: existing, created: false }
+        const merged: Student = {
+            ...existing,
+            ...sanitize(input),
+            id: existing.id,
+        }
+        reconcileProgress(merged)
+        await dataStore.putStudent(merged)
+        return { student: merged, created: false }
     }
 
     const student: Student = {
-        id: store.nextStudentId(),
+        id: await dataStore.nextStudentId(),
         studentId: input.studentId?.trim() || generateStudentCode(),
         firstName: input.firstName,
         lastName: input.lastName,
@@ -54,8 +63,18 @@ export const upsertStudent = (input: StudentInput): UpsertResult => {
         address: input.address ?? '',
     }
     reconcileProgress(student)
-    store.students.push(student)
+    await dataStore.putStudent(student)
     return { student, created: true }
+}
+
+/** Erases a student and all their sessions and settlements (GDPR, REQ-009). */
+export const deleteStudent = async (id: number): Promise<boolean> => {
+    const existing = await dataStore.getStudent(id)
+    if (!existing) {
+        return false
+    }
+    await dataStore.deleteStudentCascade(id)
+    return true
 }
 
 /**

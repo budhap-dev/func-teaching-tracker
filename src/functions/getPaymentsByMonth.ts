@@ -44,7 +44,7 @@ export async function getPaymentsByMonth(
         query.status = status as PaymentStatus
     }
 
-    const groups = listPaymentsByMonth(query)
+    const groups = await listPaymentsByMonth(query)
     context.log(`Returning ${groups.length} monthly payment groups`)
     return ok(groups)
 }

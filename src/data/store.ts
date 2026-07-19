@@ -1,12 +1,7 @@
-import { Student } from '../models/student'
-import { PaymentSettlement } from '../models/payment'
-import { ScheduledSession } from '../models/session'
-import {
-    buildSeedForEnv,
-    defaultEnv,
-    seededEnvironments,
-    seedYear,
-} from './seed'
+import { DataStore } from './dataStore'
+import { MemoryStore } from './memoryStore'
+import { TableStore } from './tableStore'
+import { defaultEnv, seededEnvironments, seedYear } from './seed'
 
 /** The active environment, from the ENVIRONMENT app setting (dev/prod). */
 export const environmentName: string =
@@ -19,40 +14,28 @@ export const environmentName: string =
 export const billingYear = seedYear
 
 /**
- * A simple in-memory data store seeded with per-environment sample data.
+ * Chooses the persistence adapter from the DATA_STORE app setting (REQ-009):
  *
- * The dataset (and its volume) is selected by the ENVIRONMENT app setting, so
- * dev/prod each serve distinct data. State persists for the lifetime of a
- * worker process only — it is NOT durable and resets on restart / scale-out. It
- * exists so the API is runnable out of the box; swap this module for a real
- * repository (Cosmos DB, SQL, Table Storage) without touching the services or
- * functions that depend on it.
+ *   unset | "memory"  → in-memory, self-seeding (local dev, tests, today's
+ *                       deployed behaviour). NOT durable.
+ *   "tables"          → Azure Table Storage (phase 2) — durable, per-env.
  *
- * Note what is *not* here: what a student owes. That is derived from the classes
- * that took place, never stored, so it cannot drift out of step with the
- * timetable. Only what the teacher recorded — `settlements` — is kept.
+ * The zero-breakage rollout: the flag stays "memory" while the table plumbing
+ * is provisioned, then flips per environment once its tables are seeded.
  */
-class InMemoryStore {
-    students: Student[]
-    sessions: ScheduledSession[]
-    settlements: PaymentSettlement[]
-
-    constructor() {
-        const seed = buildSeedForEnv(environmentName)
-        this.students = seed.students
-        this.sessions = seed.sessions
-        this.settlements = []
-    }
-
-    /** Returns the next available numeric student id. */
-    nextStudentId(): number {
-        return this.students.reduce((max, s) => Math.max(max, s.id), 0) + 1
-    }
-
-    /** Returns the next available numeric session id. */
-    nextSessionId(): number {
-        return this.sessions.reduce((max, s) => Math.max(max, s.id), 0) + 1
+const createDataStore = (): DataStore => {
+    const kind = process.env.DATA_STORE ?? 'memory'
+    switch (kind) {
+        case 'memory':
+            return new MemoryStore(environmentName)
+        case 'tables':
+            return new TableStore()
+        default:
+            throw new Error(
+                `Unknown DATA_STORE "${kind}" (expected "memory" or "tables").`
+            )
     }
 }
 
-export const store = new InMemoryStore()
+/** The single data store the whole API reads and writes through. */
+export const dataStore: DataStore = createDataStore()

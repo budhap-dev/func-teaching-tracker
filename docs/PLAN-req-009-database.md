@@ -14,6 +14,45 @@ about children, GDPR is a design input, not a footnote** — section 10: move th
 stack to a UK region *before* data becomes real, add an erasure path, keep the
 data plane keyless and AAD-only.
 
+## 0. Progress tracker
+
+**Decisions — all approved by the owner, 2026-07-17:**
+
+- [x] **Prod starts empty** — the teacher enters the real roster; no synthetic
+      children in the durable store. Dev keeps the synthetic seed.
+- [x] **UK South move confirmed as phase 0** — while every byte is synthetic.
+- [x] **Retention: 12 months after a student leaves**, exported accounts under
+      the owner's custody cover HMRC.
+- [x] **Backup: monthly JSON dump** of the four tables, owner's custody, same
+      retention rules as the live data.
+
+**Phases** _(ticked as each lands; details in §6)_:
+
+- [x] Phase 0 — **dev** stack to UK South (SWA stayed in eastus2 — no UK
+      region, holds no personal data; new dev SWA hostname
+      `kind-sea-093f96a0f`; 401 gate re-verified) — done 2026-07-19
+- [ ] Phase 0 — prod stack to UK South (LATER, with the prod move)
+- [x] Phase 1 — dataStore seam; memory adapter behind `DATA_STORE` flag;
+      services/handlers async; no behaviour change (HTTP e2e identical)
+- [x] Phase 2 — tableStore adapter + `DELETE /students/{id}` erasure cascade
+      (validated on Azurite)
+- [x] Phase 3 — Terraform data accounts (UK South dev / eastus prod, LRS,
+      prevent_destroy) + RBAC. **Deviation:** shared-key access stays
+      *enabled* — the azurerm provider reads account service properties over
+      the data plane with key auth every plan, so strict keyless needs a
+      provider-wide `storage_use_azuread` switch (deferred hardening). The app
+      + seeder use managed identity regardless; the key is reachable only by
+      an owner/deployer, not the CI identities.
+- [x] Phase 4 — one-off seeder (`npm run seed`, `--empty` for prod, re-seed
+      guard) + counters; **dev tables seeded** (5 students, 365 sessions)
+- [x] Phase 5 — **dev flipped to `DATA_STORE=tables`**; acceptance PROVEN:
+      a student+session+payment written in one process survived a fresh
+      process (= restart) reading the real UK South tables, then erased
+      cleanly. Deployed app cold-starts healthy on tables (401 gate live).
+      Terraform in sync (`AUTH_ENFORCED`/`DATA_STORE` now TF-managed).
+- [ ] Phase 6 — prod flipped (empty); docs updated; story ticked; monthly
+      dump script in place (LATER, with the prod move)
+
 ## 1. What we're replacing
 
 Today the entire dataset lives in one module-level object:

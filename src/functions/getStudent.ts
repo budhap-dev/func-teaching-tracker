@@ -23,7 +23,7 @@ export async function getStudent(
         return badRequest('Student id must be an integer.')
     }
 
-    const student = getStudentById(id)
+    const student = await getStudentById(id)
     if (!student) {
         context.log(`Student ${id} not found`)
         return notFound(`Student ${id} not found.`)

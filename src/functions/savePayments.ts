@@ -34,13 +34,13 @@ export async function savePaymentsHandler(
     }
 
     for (let i = 0; i < inputs.length; i += 1) {
-        const error = validatePaymentInput(inputs[i], i)
+        const error = await validatePaymentInput(inputs[i], i)
         if (error) {
             return badRequest(error)
         }
     }
 
-    const saved = savePayments(inputs)
+    const saved = await savePayments(inputs)
     context.log(`Saved ${saved.length} payment records`)
     return ok(saved)
 }

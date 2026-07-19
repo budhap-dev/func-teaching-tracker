@@ -16,14 +16,49 @@ module "app" {
   tags                   = merge(var.tags, { environment = each.key })
 
   # REQ-004: how the API validates teacher tokens and finds the allow-list.
-  # AUTH_ENFORCED starts false — the API validates and logs but lets requests
-  # through until the frontend ships sign-in; flipping it is a setting change.
+  # REQ-009: where it persists data (memory | tables) and the table endpoint.
   extra_app_settings = {
-    TENANT_ID     = data.azuread_client_config.current.tenant_id
-    API_CLIENT_ID = module.auth[each.key].api_client_id
-    KEY_VAULT_URL = module.auth[each.key].key_vault_url
-    AUTH_ENFORCED = "false"
+    TENANT_ID       = data.azuread_client_config.current.tenant_id
+    API_CLIENT_ID   = module.auth[each.key].api_client_id
+    KEY_VAULT_URL   = module.auth[each.key].key_vault_url
+    AUTH_ENFORCED   = tostring(each.value.auth_enforced)
+    DATA_STORE      = each.value.data_store
+    DATA_TABLES_URL = module.data[each.key].table_endpoint
   }
+}
+
+# REQ-009: per-environment durable data store (UK South, keyless). Provisions
+# the account only — the four tables are created by the seeder over AAD, since
+# a keyless account cannot be written by Terraform's data plane. DATA_STORE
+# stays "memory" until an env's tables are seeded and its flag flipped.
+module "data" {
+  source   = "./modules/data_store"
+  for_each = var.environments
+
+  project  = var.project
+  env      = each.key
+  location = each.value.location
+  tags     = merge(var.tags, { environment = each.key })
+}
+
+# The Function App reads and writes the data tables with its managed identity;
+# the deployer gets the same role so it can create tables and run the seeder.
+# Placed at root (not in-module) for the same reason as func_reads_secrets: it
+# needs the app's identity and the data account together.
+resource "azurerm_role_assignment" "func_writes_data" {
+  for_each = var.environments
+
+  scope                = module.data[each.key].storage_account_id
+  role_definition_name = "Storage Table Data Contributor"
+  principal_id         = module.app[each.key].principal_id
+}
+
+resource "azurerm_role_assignment" "deployer_writes_data" {
+  for_each = var.environments
+
+  scope                = module.data[each.key].storage_account_id
+  role_definition_name = "Storage Table Data Contributor"
+  principal_id         = data.azuread_client_config.current.object_id
 }
 
 # REQ-004: per-environment Entra app registrations (API + SPA) and the Key
