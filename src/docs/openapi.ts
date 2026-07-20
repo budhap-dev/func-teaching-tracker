@@ -108,8 +108,15 @@ export const openApiDocument = {
                     fees: {
                         type: 'number',
                         minimum: 0,
-                        description: 'Agreed price for a single session, in GBP.',
+                        description:
+                            'Fee amount in GBP — a per-session price or a monthly retainer, per feeType.',
                         example: 35,
+                    },
+                    feeType: {
+                        type: 'string',
+                        enum: ['per-session', 'monthly', 'none'],
+                        description:
+                            'How fees is billed. Absent means per-session.',
                     },
                     notes: { type: 'string' },
                     parentName: { type: 'string', example: 'Byron Lovelace' },
@@ -173,6 +180,10 @@ export const openApiDocument = {
                     },
                     mode: { $ref: '#/components/schemas/StudentMode' },
                     fees: { type: 'number', minimum: 0 },
+                    feeType: {
+                        type: 'string',
+                        enum: ['per-session', 'monthly', 'none'],
+                    },
                     notes: { type: 'string' },
                     parentName: { type: 'string' },
                     contactNumber: { type: 'string' },
@@ -301,6 +312,10 @@ export const openApiDocument = {
                         example: '2026-07',
                     },
                     feePerSession: { type: 'number', example: 35 },
+                    feeType: {
+                        type: 'string',
+                        enum: ['per-session', 'monthly', 'none'],
+                    },
                     sessionsHeld: { type: 'integer', example: 4 },
                     amountDue: {
                         type: 'number',

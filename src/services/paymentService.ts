@@ -56,7 +56,14 @@ const buildRecord = (
     sessionsHeld: number,
     settlement: PaymentSettlement | undefined
 ): PaymentRecord => {
-    const amountDue = sessionsHeld * student.fees
+    // A no-fee student is never billed; a monthly student pays a flat retainer
+    // every month; a per-session student pays for the classes that happened.
+    const amountDue =
+        student.feeType === 'none'
+            ? 0
+            : student.feeType === 'monthly'
+              ? student.fees
+              : sessionsHeld * student.fees
     const amountPaid = settlement?.amountPaid ?? 0
 
     return {
@@ -65,6 +72,7 @@ const buildRecord = (
         studentName: `${student.firstName} ${student.lastName}`,
         month,
         feePerSession: student.fees,
+        feeType: student.feeType ?? 'per-session',
         sessionsHeld,
         amountDue,
         amountPaid,

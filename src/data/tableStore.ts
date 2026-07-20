@@ -98,6 +98,8 @@ const toStudentRow = (s: Student): Row => ({
         : {}),
     mode: s.mode,
     fees: s.fees,
+    // Billing basis; written only when set (absent means per-session).
+    ...(s.feeType ? { feeType: s.feeType } : {}),
     notes: s.notes,
     // Tables has no array column, so the notes log rides in a JSON string like
     // subjects — written only when the student has any.
@@ -133,6 +135,7 @@ const fromStudentRow = (e: Row): Student => ({
         : {}),
     mode: e.mode as Student['mode'],
     fees: e.fees as number,
+    ...(e.feeType ? { feeType: e.feeType as Student['feeType'] } : {}),
     notes: e.notes as string,
     ...(e.datedNotesJson
         ? { datedNotes: JSON.parse(e.datedNotesJson as string) }

@@ -62,6 +62,7 @@ export const upsertStudent = async (
         progressBySubject: input.progressBySubject,
         mode: normalizeMode(input.mode),
         fees: input.fees ?? 0,
+        feeType: input.feeType ?? 'per-session',
         notes: input.notes ?? '',
         parentName: input.parentName ?? '',
         contactNumber: input.contactNumber ?? '',
@@ -234,6 +235,14 @@ export const validateStudentInput = (
         (typeof input.fees !== 'number' || input.fees < 0)
     ) {
         return 'fees must be a non-negative number.'
+    }
+    if (
+        input.feeType !== undefined &&
+        input.feeType !== 'per-session' &&
+        input.feeType !== 'monthly' &&
+        input.feeType !== 'none'
+    ) {
+        return 'feeType must be "per-session", "monthly" or "none".'
     }
     return undefined
 }
