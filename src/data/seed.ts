@@ -113,6 +113,14 @@ export const defaultEnv = 'dev'
 /** Environments that have a seed dataset. */
 export const seededEnvironments = Object.keys(envSeeds)
 
+/** Rotating diary text for the seeded students' notes logs. */
+const noteSeeds = [
+    'Settled in well and confident with the fundamentals.',
+    'Worked through past-paper questions — steady progress.',
+    'Needs a little more practice before moving on.',
+    'Great engagement today; asked sharp questions.',
+]
+
 const buildStudents = (config: EnvSeedConfig): Student[] =>
     config.names.slice(0, config.studentCount).map(([firstName, lastName], i) => {
         // Every third student learns both ways, so the mode is visible in
@@ -155,6 +163,20 @@ const buildStudents = (config: EnvSeedConfig): Student[] =>
             mode,
             fees: config.baseFee + (i % 4) * 15,
             notes: config.noteTag,
+            // A couple of dated diary entries so the notes log has content to
+            // show in every seeded environment.
+            datedNotes: [
+                {
+                    id: 1,
+                    date: `${seedYear}-06-${String(((i * 3) % 27) + 1).padStart(2, '0')}`,
+                    text: noteSeeds[i % noteSeeds.length],
+                },
+                {
+                    id: 2,
+                    date: `${seedYear}-07-${String(((i * 5) % 27) + 1).padStart(2, '0')}`,
+                    text: noteSeeds[(i + 1) % noteSeeds.length],
+                },
+            ],
             parentName: `${parentFirstNames[i % parentFirstNames.length]} ${lastName}`,
             contactNumber: `${config.phonePrefix}${String(i + 1).padStart(2, '0')}`,
             address: `${i + 1} Sample Street, ${config.town}`,
