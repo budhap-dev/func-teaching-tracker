@@ -54,7 +54,7 @@ variable "environments" {
       maximum_instance_count = 100
       cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
       auth_enforced          = false
-      data_store             = "memory"
+      data_store             = "tables"
     }
   }
 }
