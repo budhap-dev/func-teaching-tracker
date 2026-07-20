@@ -1,7 +1,7 @@
 name: Deploy
 # One pipeline for both environments: build → dev (auto) → approval → prod.
 # The run graph shows all stages together, so it's clear what is going where.
-run-name: "Deploy ${{ github.sha }} → dev, then prod on approval"
+run-name: "Deploy: ${{ github.event.head_commit.message || github.sha }} (@${{ github.actor }})"
 
 on:
   push:
