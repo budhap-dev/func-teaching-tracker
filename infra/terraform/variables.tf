@@ -56,9 +56,9 @@ variable "environments" {
       node_version           = "24"
       maximum_instance_count = 100
       cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
-      # Stays false until the new UK stack is deployed and sign-in is verified
-      # end-to-end; flipping it before that would lock the teacher out.
-      auth_enforced          = false
+      # Enforced: the UK stack is deployed and Microsoft sign-in is verified
+      # end-to-end, so the API now rejects unauthenticated calls (Art. 32).
+      auth_enforced          = true
       data_store             = "tables"
     }
   }
