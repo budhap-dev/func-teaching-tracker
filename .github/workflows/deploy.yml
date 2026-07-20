@@ -2,12 +2,15 @@ name: Deploy
 # One workflow, both environments. Push auto-deploys dev; prod is a manual
 # promotion (Actions → Run workflow). No waiting/polling job, so nothing logs
 # or burns minutes while a manual approval is pending — promote whenever.
-run-name: "Deploy: ${{ github.event.head_commit.message || github.sha }} (@${{ github.actor }})"
+#
+# A manual dispatch has no commit message in context, so the run name says
+# "Promote to prod" and the promotion-info job prints the commit + PR.
+run-name: "${{ github.event_name == 'workflow_dispatch' && format('Promote to prod — @{0}', github.actor) || format('Deploy dev: {0} (@{1})', github.event.head_commit.message, github.actor) }}"
 
 on:
   push:
     branches: [main]
-  workflow_dispatch: # = promote this commit to prod
+  workflow_dispatch: # = promote current main to prod
 
 # id-token: OIDC deploy login · contents: checkout.
 permissions:
@@ -15,6 +18,32 @@ permissions:
   contents: read
 
 jobs:
+  # On a manual promote, spell out in the run Summary exactly which commit and
+  # PR are going to prod (the run name can't carry the message on a dispatch).
+  promotion-info:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Summarise what is being promoted
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          subject=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}" --jq '.commit.message' | head -1)
+          pr=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+                 --jq 'if length > 0 then "#\(.[0].number) — \(.[0].title)" else "(no PR — direct push)" end')
+          {
+            echo "## 🚀 Promoting to production"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Message | $subject |"
+            echo "| PR | $pr |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Build once; the same artifact is deployed to dev (push) or prod (dispatch).
   build:
     runs-on: ubuntu-latest
