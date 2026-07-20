@@ -49,12 +49,17 @@ variable "environments" {
       data_store    = "tables"
     }
     prod = {
-      location               = "eastus"
+      # UK South for data residency: prod holds personal data about children,
+      # so it lives in the UK to avoid a restricted international transfer
+      # (GDPR plan §10.1). Moved while prod was still empty — no data migration.
+      location               = "uksouth"
       node_version           = "24"
       maximum_instance_count = 100
       cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
+      # Stays false until the new UK stack is deployed and sign-in is verified
+      # end-to-end; flipping it before that would lock the teacher out.
       auth_enforced          = false
-      data_store             = "memory"
+      data_store             = "tables"
     }
   }
 }
