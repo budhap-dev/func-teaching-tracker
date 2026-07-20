@@ -1,5 +1,10 @@
 export type StudentMode = 'Online' | 'Face to Face' | 'Both'
 
+/** How a student's `fees` amount is billed: `per-session` (default) charges per
+    class held; `monthly` is a flat retainer charged every month; `none` means
+    the student is not billed at all. */
+export type FeeType = 'per-session' | 'monthly' | 'none'
+
 /** One dated entry in a student's notes log. `id` is stable for edit/delete;
     `date` is an ISO `YYYY-MM-DD` day. */
 export interface DatedNote {
@@ -25,8 +30,11 @@ export interface Student {
         only the blended figure and keep working unchanged (REQ-014). */
     progressBySubject?: Record<string, number>
     mode: StudentMode
-    /** Agreed price for a single session with this student, in GBP. */
+    /** Agreed fee amount in GBP. Its meaning depends on {@link feeType}: a
+        per-session price (default) or a flat monthly retainer. */
     fees: number
+    /** How `fees` is billed. Optional — absent means `per-session`. */
+    feeType?: FeeType
     /** Legacy single free-text note, kept for older records. Superseded by
         {@link datedNotes} in the frontend. */
     notes: string

@@ -161,7 +161,17 @@ const buildStudents = (config: EnvSeedConfig): Student[] =>
                 }
             })(),
             mode,
-            fees: config.baseFee + (i % 4) * 15,
+            // Spread the billing bases so all three show in every environment:
+            // every 4th student is a flat monthly retainer, every 4th (offset)
+            // is not billed at all, the rest pay per session.
+            feeType:
+                i % 4 === 3 ? 'monthly' : i % 4 === 2 ? 'none' : 'per-session',
+            fees:
+                i % 4 === 3
+                    ? config.baseFee * 8
+                    : i % 4 === 2
+                      ? 0
+                      : config.baseFee + (i % 4) * 15,
             notes: config.noteTag,
             // A couple of dated diary entries so the notes log has content to
             // show in every seeded environment.

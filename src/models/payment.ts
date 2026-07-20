@@ -1,3 +1,5 @@
+import type { FeeType } from './student'
+
 export type PaymentStatus = 'Paid' | 'Partial' | 'Pending'
 
 export const paymentStatuses: PaymentStatus[] = ['Paid', 'Partial', 'Pending']
@@ -29,11 +31,14 @@ export interface PaymentRecord {
     studentId: number
     studentName: string
     month: string
-    /** The student's agreed price for a single session. */
+    /** The student's fee amount — a per-session price or a monthly retainer,
+        per {@link feeType}. */
     feePerSession: number
+    /** How this bill is charged; absent means `per-session`. */
+    feeType?: FeeType
     /** How many classes actually took place this month. */
     sessionsHeld: number
-    /** `feePerSession × sessionsHeld`. */
+    /** Per-session: `feePerSession × sessionsHeld`. Monthly: the flat fee. */
     amountDue: number
     amountPaid: number
     /** `amountDue − amountPaid`, never below zero. */
