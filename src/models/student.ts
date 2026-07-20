@@ -1,5 +1,13 @@
 export type StudentMode = 'Online' | 'Face to Face' | 'Both'
 
+/** One dated entry in a student's notes log. `id` is stable for edit/delete;
+    `date` is an ISO `YYYY-MM-DD` day. */
+export interface DatedNote {
+    id: number
+    date: string
+    text: string
+}
+
 /** A tutored student. Mirrors the shape used by the Teaching Tracker frontend. */
 export interface Student {
     id: number
@@ -19,7 +27,11 @@ export interface Student {
     mode: StudentMode
     /** Agreed price for a single session with this student, in GBP. */
     fees: number
+    /** Legacy single free-text note, kept for older records. Superseded by
+        {@link datedNotes} in the frontend. */
     notes: string
+    /** The student's dated notes log. Optional — absent on older records. */
+    datedNotes?: DatedNote[]
     parentName: string
     contactNumber: string
     address: string

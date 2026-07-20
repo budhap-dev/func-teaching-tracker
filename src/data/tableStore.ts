@@ -99,6 +99,11 @@ const toStudentRow = (s: Student): Row => ({
     mode: s.mode,
     fees: s.fees,
     notes: s.notes,
+    // Tables has no array column, so the notes log rides in a JSON string like
+    // subjects — written only when the student has any.
+    ...(s.datedNotes && s.datedNotes.length
+        ? { datedNotesJson: JSON.stringify(s.datedNotes) }
+        : {}),
     parentName: s.parentName,
     contactNumber: s.contactNumber,
     address: s.address,
@@ -129,6 +134,9 @@ const fromStudentRow = (e: Row): Student => ({
     mode: e.mode as Student['mode'],
     fees: e.fees as number,
     notes: e.notes as string,
+    ...(e.datedNotesJson
+        ? { datedNotes: JSON.parse(e.datedNotesJson as string) }
+        : {}),
     parentName: e.parentName as string,
     contactNumber: e.contactNumber as string,
     address: e.address as string,
