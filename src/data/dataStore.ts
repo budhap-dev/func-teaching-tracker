@@ -2,6 +2,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Contact } from '../models/contact'
 
 /**
  * The persistence seam (REQ-009).
@@ -63,4 +64,10 @@ export interface DataStore {
     deleteTestimonial(id: number): Promise<void>
     /** Reserves the next numeric testimonial id. */
     nextTestimonialId(): Promise<number>
+
+    // --- Contact (REQ-006/008) ---
+    /** The single public contact record; empty fields mean "not offered". */
+    getContact(): Promise<Contact>
+    /** Replaces the public contact record. */
+    putContact(contact: Contact): Promise<void>
 }

@@ -4,6 +4,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 
 /**
@@ -25,7 +26,10 @@ const STUDENT_PK = 'student'
 const SESSION_PK = 'session'
 const SETTLEMENT_PK = 'settlement'
 const TESTIMONIAL_PK = 'testimonial'
+const CONTACT_PK = 'contact'
 const COUNTER_PK = 'counter'
+// The contact record is a singleton — one fixed key, always overwritten.
+const CONTACT_ROW = 'contact'
 const STUDENT_WIDTH = 6
 const SESSION_WIDTH = 8
 const TESTIMONIAL_WIDTH = 6
@@ -64,6 +68,7 @@ export const TABLE_NAMES = [
     'sessions',
     'settlements',
     'testimonials',
+    'contact',
     'counters',
 ] as const
 
@@ -256,6 +261,20 @@ const fromTestimonialRow = (e: Row): Testimonial => ({
     ...(e.moderatedOn ? { moderatedOn: e.moderatedOn as string } : {}),
 })
 
+const toContactRow = (c: Contact): Row => ({
+    partitionKey: CONTACT_PK,
+    rowKey: CONTACT_ROW,
+    // Only write a field that's set — a Replace upsert then drops a removed one,
+    // so an absent column reads back as "not offered".
+    ...(c.email ? { email: c.email } : {}),
+    ...(c.phone ? { phone: c.phone } : {}),
+})
+
+const fromContactRow = (e: Row): Contact => ({
+    ...(e.email ? { email: e.email as string } : {}),
+    ...(e.phone ? { phone: e.phone as string } : {}),
+})
+
 // --- The adapter --------------------------------------------------------------
 
 export class TableStore implements DataStore {
@@ -263,6 +282,7 @@ export class TableStore implements DataStore {
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
     private testimonials = tableClientFor('testimonials')
+    private contact = tableClientFor('contact')
     private counters = tableClientFor('counters')
 
     // --- Students ---
@@ -474,6 +494,31 @@ export class TableStore implements DataStore {
     async nextTestimonialId(): Promise<number> {
         const [id] = await this.reserveIds('testimonial', 1)
         return id
+    }
+
+    // --- Contact ---
+    // A singleton row; like testimonials it ensures its table first, since it
+    // was added to the store after some environments were provisioned.
+    async getContact(): Promise<Contact> {
+        await ensureTable(this.contact)
+        try {
+            const row = await this.contact.getEntity<Row>(
+                CONTACT_PK,
+                CONTACT_ROW
+            )
+            return fromContactRow(row)
+        } catch (error) {
+            // Never set yet — an empty record, not an error.
+            if (notFound(error)) {
+                return {}
+            }
+            throw error
+        }
+    }
+
+    async putContact(contact: Contact): Promise<void> {
+        await ensureTable(this.contact)
+        await this.contact.upsertEntity(toContactRow(contact), 'Replace')
     }
 
     /**
