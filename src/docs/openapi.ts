@@ -340,6 +340,12 @@ export const openApiDocument = {
                     },
                     status: { $ref: '#/components/schemas/PaymentStatus' },
                     notes: { type: 'string' },
+                    sessions: {
+                        type: 'array',
+                        description:
+                            'The held classes behind this bill, each a line item whose fees sum to amountDue. Populated for per-session students only; empty for monthly/no-fee.',
+                        items: { $ref: '#/components/schemas/SessionLine' },
+                    },
                 },
                 required: [
                     'id',
@@ -352,7 +358,24 @@ export const openApiDocument = {
                     'amountPaid',
                     'outstanding',
                     'status',
+                    'sessions',
                 ],
+            },
+            SessionLine: {
+                type: 'object',
+                description:
+                    'One held class as a bill line item. The fee is the flat per-session price, independent of durationMinutes (shown for context).',
+                properties: {
+                    date: {
+                        type: 'string',
+                        pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                        example: '2026-07-03',
+                    },
+                    subject: { type: 'string', example: 'Mathematics' },
+                    durationMinutes: { type: 'integer', example: 60 },
+                    fee: { type: 'number', example: 35 },
+                },
+                required: ['date', 'subject', 'durationMinutes', 'fee'],
             },
             PaymentInput: {
                 type: 'object',

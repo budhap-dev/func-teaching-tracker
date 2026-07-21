@@ -8,6 +8,7 @@ import {
     paymentStatuses,
     PaymentStatus,
     PaymentSettlement,
+    SessionLine,
 } from '../models/payment'
 import { ScheduledSession, wasHeld } from '../models/session'
 import { Student } from '../models/student'
@@ -23,18 +24,20 @@ const billableMonths = (): string[] =>
     )
 
 /**
- * A "classes held" counter over a fetched-once snapshot of sessions — the
- * durable store is read once per request, not once per (student, month) cell.
+ * The classes a student actually held in a month, over a fetched-once snapshot
+ * of sessions — the durable store is read once per request, not once per
+ * (student, month) cell. The count is `.length`; the classes themselves become
+ * the bill's line items.
  */
-const heldCounter =
+const heldSessionsFor =
     (sessions: ScheduledSession[], today: string) =>
-    (studentId: number, month: string): number =>
+    (studentId: number, month: string): ScheduledSession[] =>
         sessions.filter(
             (session) =>
                 session.studentId === studentId &&
                 session.date.startsWith(month) &&
                 wasHeld(session, today)
-        ).length
+        )
 
 /** A settlement lookup over a fetched-once snapshot, keyed (studentId, month). */
 const settlementLookup = (settlements: PaymentSettlement[]) => {
@@ -53,18 +56,34 @@ const buildRecord = (
     student: Student,
     month: string,
     monthIndex: number,
-    sessionsHeld: number,
+    heldSessions: ScheduledSession[],
     settlement: PaymentSettlement | undefined
 ): PaymentRecord => {
+    const feeType = student.feeType ?? 'per-session'
+    const sessionsHeld = heldSessions.length
     // A no-fee student is never billed; a monthly student pays a flat retainer
     // every month; a per-session student pays for the classes that happened.
     const amountDue =
-        student.feeType === 'none'
+        feeType === 'none'
             ? 0
-            : student.feeType === 'monthly'
+            : feeType === 'monthly'
               ? student.fees
               : sessionsHeld * student.fees
     const amountPaid = settlement?.amountPaid ?? 0
+
+    // Itemise a per-session bill, oldest class first, so the total tallies to
+    // amountDue. Monthly/no-fee bills aren't itemised per session.
+    const sessions: SessionLine[] =
+        feeType === 'per-session'
+            ? [...heldSessions]
+                  .sort((left, right) => left.date.localeCompare(right.date))
+                  .map((session) => ({
+                      date: session.date,
+                      subject: session.subject,
+                      durationMinutes: session.durationMinutes,
+                      fee: student.fees,
+                  }))
+            : []
 
     return {
         id: student.id * 100 + monthIndex,
@@ -72,13 +91,14 @@ const buildRecord = (
         studentName: `${student.firstName} ${student.lastName}`,
         month,
         feePerSession: student.fees,
-        feeType: student.feeType ?? 'per-session',
+        feeType,
         sessionsHeld,
         amountDue,
         amountPaid,
         outstanding: Math.max(amountDue - amountPaid, 0),
         status: derivePaymentStatus(amountDue, amountPaid),
         notes: settlement?.notes ?? '',
+        sessions,
     }
 }
 
@@ -93,7 +113,7 @@ export const listPayments = async (
         dataStore.listSessions(),
         dataStore.listSettlements(),
     ])
-    const heldIn = heldCounter(sessions, today)
+    const heldIn = heldSessionsFor(sessions, today)
     const settlementFor = settlementLookup(settlements)
 
     return students
@@ -167,17 +187,17 @@ export const savePayments = async (
 ): Promise<PaymentRecord[]> => {
     const today = todayIso()
     const months = billableMonths()
-    const heldIn = heldCounter(await dataStore.listSessions(), today)
+    const heldIn = heldSessionsFor(await dataStore.listSessions(), today)
 
     const records: PaymentRecord[] = []
     for (const input of inputs) {
         const monthIndex = months.indexOf(input.month)
         const student = (await dataStore.getStudent(input.studentId))!
-        const sessionsHeld = heldIn(input.studentId, input.month)
+        const heldSessions = heldIn(input.studentId, input.month)
 
         // Settling in full means paying exactly what the classes taught so far
         // come to — never a figure typed in the hope it matches.
-        const amountDue = sessionsHeld * student.fees
+        const amountDue = heldSessions.length * student.fees
         const amountPaid = input.amountPaid ?? amountDue
 
         const existing = await dataStore.getSettlement(
@@ -193,7 +213,13 @@ export const savePayments = async (
         await dataStore.putSettlement(settlement)
 
         records.push(
-            buildRecord(student, input.month, monthIndex, sessionsHeld, settlement)
+            buildRecord(
+                student,
+                input.month,
+                monthIndex,
+                heldSessions,
+                settlement
+            )
         )
     }
     return records
