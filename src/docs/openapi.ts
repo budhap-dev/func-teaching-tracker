@@ -457,6 +457,11 @@ export const openApiDocument = {
                         description: 'Plain text; any HTML is stripped on write.',
                     },
                     status: { $ref: '#/components/schemas/TestimonialStatus' },
+                    flagged: {
+                        type: 'boolean',
+                        description:
+                            'A profanity screen matched the name/quote. Highlights it for the teacher; does not change visibility.',
+                    },
                     submittedOn: {
                         type: 'string',
                         format: 'date',
