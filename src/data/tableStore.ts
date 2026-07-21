@@ -81,6 +81,31 @@ const collect = async <T>(iter: AsyncIterable<T>): Promise<T[]> => {
     return out
 }
 
+/**
+ * Creates a table on first use, memoised per client. A table added to the code
+ * after an environment was first provisioned (e.g. `testimonials`, REQ-027)
+ * would otherwise 500 every request against it; this self-heals instead. 409
+ * means it already exists; a transient failure is not cached, so it retries.
+ */
+const ensured = new WeakMap<TableClient, Promise<void>>()
+const ensureTable = (client: TableClient): Promise<void> => {
+    let ready = ensured.get(client)
+    if (!ready) {
+        ready = client
+            .createTable()
+            .then(() => undefined)
+            .catch((error) => {
+                if (error instanceof RestError && error.statusCode === 409) {
+                    return
+                }
+                ensured.delete(client)
+                throw error
+            })
+        ensured.set(client, ready)
+    }
+    return ready
+}
+
 // --- Entity <-> model mapping -------------------------------------------------
 
 type Row = { partitionKey: string; rowKey: string } & Record<string, unknown>
@@ -398,7 +423,10 @@ export class TableStore implements DataStore {
     }
 
     // --- Testimonials ---
+    // Each entry point ensures the table exists first — it was added to the
+    // store after some environments were provisioned (REQ-027).
     async listTestimonials(): Promise<Testimonial[]> {
+        await ensureTable(this.testimonials)
         const rows = await collect(
             this.testimonials.listEntities<Row>({
                 queryOptions: {
@@ -410,6 +438,7 @@ export class TableStore implements DataStore {
     }
 
     async getTestimonial(id: number): Promise<Testimonial | undefined> {
+        await ensureTable(this.testimonials)
         try {
             const row = await this.testimonials.getEntity<Row>(
                 TESTIMONIAL_PK,
@@ -425,6 +454,7 @@ export class TableStore implements DataStore {
     }
 
     async putTestimonial(testimonial: Testimonial): Promise<void> {
+        await ensureTable(this.testimonials)
         await this.testimonials.upsertEntity(
             toTestimonialRow(testimonial),
             'Replace'
@@ -432,6 +462,7 @@ export class TableStore implements DataStore {
     }
 
     async deleteTestimonial(id: number): Promise<void> {
+        await ensureTable(this.testimonials)
         await this.testimonials
             .deleteEntity(TESTIMONIAL_PK, pad(id, TESTIMONIAL_WIDTH))
             .catch((error) => {
