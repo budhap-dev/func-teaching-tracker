@@ -30,18 +30,23 @@ jobs:
       - name: Summarise what is being promoted
         env:
           GH_TOKEN: ${{ github.token }}
+        # Purely informational: never fail the promotion over the summary. The
+        # API calls can transiently return nothing (e.g. right after a merge),
+        # so tolerate errors (set +e) and fall back rather than exit non-zero.
         run: |
-          subject=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}" --jq '.commit.message' | head -1)
-          pr=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
-                 --jq 'if length > 0 then "#\(.[0].number) — \(.[0].title)" else "(no PR — direct push)" end')
+          set +e
+          commit="${{ github.sha }}"
+          subject=$(gh api "repos/${{ github.repository }}/commits/$commit" --jq '.commit.message' 2>/dev/null | head -1)
+          pr=$(gh api "repos/${{ github.repository }}/commits/$commit/pulls" \
+                 --jq 'map("#\(.number) — \(.title)") | first // empty' 2>/dev/null)
           {
             echo "## 🚀 Promoting to production"
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| Commit | \`${{ github.sha }}\` |"
-            echo "| Message | $subject |"
-            echo "| PR | $pr |"
+            echo "| Commit | \`$commit\` |"
+            echo "| Message | ${subject:-(unavailable)} |"
+            echo "| PR | ${pr:-(none found)} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Build once; the same artifact is deployed to dev (push) or prod (dispatch).
