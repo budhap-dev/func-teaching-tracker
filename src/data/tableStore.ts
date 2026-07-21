@@ -3,6 +3,7 @@ import { DefaultAzureCredential } from '@azure/identity'
 import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
+import { Testimonial } from '../models/testimonial'
 import { DataStore } from './dataStore'
 
 /**
@@ -23,9 +24,11 @@ import { DataStore } from './dataStore'
 const STUDENT_PK = 'student'
 const SESSION_PK = 'session'
 const SETTLEMENT_PK = 'settlement'
+const TESTIMONIAL_PK = 'testimonial'
 const COUNTER_PK = 'counter'
 const STUDENT_WIDTH = 6
 const SESSION_WIDTH = 8
+const TESTIMONIAL_WIDTH = 6
 
 /** The well-known Azurite emulator account key — a documented public constant. */
 const AZURITE_KEY =
@@ -60,6 +63,7 @@ export const TABLE_NAMES = [
     'students',
     'sessions',
     'settlements',
+    'testimonials',
     'counters',
 ] as const
 
@@ -197,12 +201,43 @@ const fromSettlementRow = (e: Row): PaymentSettlement => ({
     notes: e.notes as string,
 })
 
+const toTestimonialRow = (t: Testimonial): Row => ({
+    partitionKey: TESTIMONIAL_PK,
+    rowKey: pad(t.id, TESTIMONIAL_WIDTH),
+    id: t.id,
+    authorName: t.authorName,
+    role: t.role,
+    // Optional attribution — written only when given, so a Replace upsert
+    // drops it if the submitter left it blank.
+    ...(t.subject ? { subject: t.subject } : {}),
+    ...(t.year ? { year: t.year } : {}),
+    rating: t.rating,
+    quote: t.quote,
+    status: t.status,
+    submittedOn: t.submittedOn,
+    ...(t.moderatedOn ? { moderatedOn: t.moderatedOn } : {}),
+})
+
+const fromTestimonialRow = (e: Row): Testimonial => ({
+    id: e.id as number,
+    authorName: e.authorName as string,
+    role: e.role as Testimonial['role'],
+    ...(e.subject ? { subject: e.subject as string } : {}),
+    ...(e.year ? { year: e.year as string } : {}),
+    rating: e.rating as number,
+    quote: e.quote as string,
+    status: e.status as Testimonial['status'],
+    submittedOn: e.submittedOn as string,
+    ...(e.moderatedOn ? { moderatedOn: e.moderatedOn as string } : {}),
+})
+
 // --- The adapter --------------------------------------------------------------
 
 export class TableStore implements DataStore {
     private students = tableClientFor('students')
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
+    private testimonials = tableClientFor('testimonials')
     private counters = tableClientFor('counters')
 
     // --- Students ---
@@ -362,6 +397,54 @@ export class TableStore implements DataStore {
         )
     }
 
+    // --- Testimonials ---
+    async listTestimonials(): Promise<Testimonial[]> {
+        const rows = await collect(
+            this.testimonials.listEntities<Row>({
+                queryOptions: {
+                    filter: odata`PartitionKey eq ${TESTIMONIAL_PK}`,
+                },
+            })
+        )
+        return rows.map(fromTestimonialRow)
+    }
+
+    async getTestimonial(id: number): Promise<Testimonial | undefined> {
+        try {
+            const row = await this.testimonials.getEntity<Row>(
+                TESTIMONIAL_PK,
+                pad(id, TESTIMONIAL_WIDTH)
+            )
+            return fromTestimonialRow(row)
+        } catch (error) {
+            if (notFound(error)) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
+    async putTestimonial(testimonial: Testimonial): Promise<void> {
+        await this.testimonials.upsertEntity(
+            toTestimonialRow(testimonial),
+            'Replace'
+        )
+    }
+
+    async deleteTestimonial(id: number): Promise<void> {
+        await this.testimonials
+            .deleteEntity(TESTIMONIAL_PK, pad(id, TESTIMONIAL_WIDTH))
+            .catch((error) => {
+                // Already gone is fine — deleting a review is idempotent.
+                if (!notFound(error)) throw error
+            })
+    }
+
+    async nextTestimonialId(): Promise<number> {
+        const [id] = await this.reserveIds('testimonial', 1)
+        return id
+    }
+
     /**
      * Reserves a contiguous block of `count` ids for a sequence, guarded by
      * the counter row's ETag: read, write value+count with If-Match, retry on
@@ -370,7 +453,7 @@ export class TableStore implements DataStore {
      * only place that pays for concurrency control.
      */
     private async reserveIds(
-        name: 'student' | 'session',
+        name: 'student' | 'session' | 'testimonial',
         count: number
     ): Promise<number[]> {
         for (let attempt = 0; attempt < 8; attempt += 1) {

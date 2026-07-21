@@ -1,6 +1,7 @@
 import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
+import { Testimonial } from '../models/testimonial'
 import { DataStore } from './dataStore'
 import { buildSeedForEnv } from './seed'
 
@@ -18,12 +19,14 @@ export class MemoryStore implements DataStore {
     private students: Student[]
     private sessions: ScheduledSession[]
     private settlements: PaymentSettlement[]
+    private testimonials: Testimonial[]
 
     constructor(environmentName: string) {
         const seed = buildSeedForEnv(environmentName)
         this.students = seed.students
         this.sessions = seed.sessions
         this.settlements = []
+        this.testimonials = seed.testimonials
     }
 
     // --- Students ---
@@ -116,5 +119,37 @@ export class MemoryStore implements DataStore {
         } else {
             this.settlements.push(settlement)
         }
+    }
+
+    // --- Testimonials ---
+    async listTestimonials(): Promise<Testimonial[]> {
+        return this.testimonials
+    }
+
+    async getTestimonial(id: number): Promise<Testimonial | undefined> {
+        return this.testimonials.find((testimonial) => testimonial.id === id)
+    }
+
+    async putTestimonial(testimonial: Testimonial): Promise<void> {
+        const index = this.testimonials.findIndex(
+            (item) => item.id === testimonial.id
+        )
+        if (index >= 0) {
+            this.testimonials[index] = testimonial
+        } else {
+            this.testimonials.push(testimonial)
+        }
+    }
+
+    async deleteTestimonial(id: number): Promise<void> {
+        this.testimonials = this.testimonials.filter(
+            (testimonial) => testimonial.id !== id
+        )
+    }
+
+    async nextTestimonialId(): Promise<number> {
+        return (
+            this.testimonials.reduce((max, t) => Math.max(max, t.id), 0) + 1
+        )
     }
 }
