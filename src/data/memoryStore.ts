@@ -2,6 +2,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 import { buildSeedForEnv } from './seed'
 
@@ -20,6 +21,7 @@ export class MemoryStore implements DataStore {
     private sessions: ScheduledSession[]
     private settlements: PaymentSettlement[]
     private testimonials: Testimonial[]
+    private contact: Contact
 
     constructor(environmentName: string) {
         const seed = buildSeedForEnv(environmentName)
@@ -27,6 +29,7 @@ export class MemoryStore implements DataStore {
         this.sessions = seed.sessions
         this.settlements = []
         this.testimonials = seed.testimonials
+        this.contact = seed.contact
     }
 
     // --- Students ---
@@ -151,5 +154,14 @@ export class MemoryStore implements DataStore {
         return (
             this.testimonials.reduce((max, t) => Math.max(max, t.id), 0) + 1
         )
+    }
+
+    // --- Contact ---
+    async getContact(): Promise<Contact> {
+        return this.contact
+    }
+
+    async putContact(contact: Contact): Promise<void> {
+        this.contact = contact
     }
 }

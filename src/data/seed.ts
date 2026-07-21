@@ -1,6 +1,7 @@
 import { Student, StudentMode } from '../models/student'
 import { ScheduledSession, SessionStatus } from '../models/session'
 import { Testimonial } from '../models/testimonial'
+import { Contact } from '../models/contact'
 
 // Each environment serves a distinct dataset — different people and a
 // different volume — so dev/prod are easy to tell apart in the UI.
@@ -347,6 +348,12 @@ const buildTestimonials = (): Testimonial[] => [
     },
 ]
 
+/** The public contact details a fresh environment starts with (REQ-006/008). */
+const buildContact = (): Contact => ({
+    email: 'hello@example.com',
+    phone: '+44 7700 900000',
+})
+
 /** Builds the full dataset (students + a year of classes) for one environment. */
 export const buildSeedForEnv = (
     env: string
@@ -354,6 +361,7 @@ export const buildSeedForEnv = (
     students: Student[]
     sessions: ScheduledSession[]
     testimonials: Testimonial[]
+    contact: Contact
 } => {
     const config = envSeeds[env] ?? envSeeds[defaultEnv]
     const students = buildStudents(config)
@@ -361,5 +369,10 @@ export const buildSeedForEnv = (
         ...buildSessions(students, config, seedYear),
         ...buildGroupSessions(students, seedYear),
     ]
-    return { students, sessions, testimonials: buildTestimonials() }
+    return {
+        students,
+        sessions,
+        testimonials: buildTestimonials(),
+        contact: buildContact(),
+    }
 }
