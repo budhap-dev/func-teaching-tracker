@@ -61,6 +61,10 @@ const buildRecord = (
 ): PaymentRecord => {
     const feeType = student.feeType ?? 'per-session'
     const sessionsHeld = heldSessions.length
+    const totalDurationMinutes = heldSessions.reduce(
+        (total, session) => total + session.durationMinutes,
+        0
+    )
     // A no-fee student is never billed; a monthly student pays a flat retainer
     // every month; a per-session student pays for the classes that happened.
     const amountDue =
@@ -93,6 +97,7 @@ const buildRecord = (
         feePerSession: student.fees,
         feeType,
         sessionsHeld,
+        totalDurationMinutes,
         amountDue,
         amountPaid,
         outstanding: Math.max(amountDue - amountPaid, 0),

@@ -327,6 +327,12 @@ export const openApiDocument = {
                         enum: ['per-session', 'monthly', 'none'],
                     },
                     sessionsHeld: { type: 'integer', example: 4 },
+                    totalDurationMinutes: {
+                        type: 'integer',
+                        description:
+                            'Total minutes of the classes held this month.',
+                        example: 240,
+                    },
                     amountDue: {
                         type: 'number',
                         description: 'feePerSession × sessionsHeld.',
@@ -354,6 +360,7 @@ export const openApiDocument = {
                     'month',
                     'feePerSession',
                     'sessionsHeld',
+                    'totalDurationMinutes',
                     'amountDue',
                     'amountPaid',
                     'outstanding',
