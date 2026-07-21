@@ -1,6 +1,7 @@
 import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
+import { Testimonial } from '../models/testimonial'
 
 /**
  * The persistence seam (REQ-009).
@@ -52,4 +53,14 @@ export interface DataStore {
     ): Promise<PaymentSettlement | undefined>
     /** Creates or replaces the settlement for one (student, month). */
     putSettlement(settlement: PaymentSettlement): Promise<void>
+
+    // --- Testimonials (REQ-027) ---
+    listTestimonials(): Promise<Testimonial[]>
+    getTestimonial(id: number): Promise<Testimonial | undefined>
+    /** Creates or replaces a testimonial by id. */
+    putTestimonial(testimonial: Testimonial): Promise<void>
+    /** Permanently removes a testimonial by id (spam/abuse, or GDPR erasure). */
+    deleteTestimonial(id: number): Promise<void>
+    /** Reserves the next numeric testimonial id. */
+    nextTestimonialId(): Promise<number>
 }

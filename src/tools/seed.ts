@@ -36,7 +36,7 @@ const ensureTables = async (): Promise<void> => {
 }
 
 const setCounter = async (
-    name: 'student' | 'session',
+    name: 'student' | 'session' | 'testimonial',
     value: number
 ): Promise<void> => {
     await tableClientFor('counters').upsertEntity(
@@ -63,6 +63,7 @@ const main = async (): Promise<void> => {
     if (has('empty')) {
         await setCounter('student', 0)
         await setCounter('session', 0)
+        await setCounter('testimonial', 0)
         console.log(
             `Provisioned ${env}: empty tables, counters at 0 (no seed data).`
         )
@@ -85,16 +86,26 @@ const main = async (): Promise<void> => {
     for (const session of seed.sessions) {
         await store.putSession(session)
     }
+    for (const testimonial of seed.testimonials) {
+        await store.putTestimonial(testimonial)
+    }
 
     const maxStudentId = seed.students.reduce((max, s) => Math.max(max, s.id), 0)
     const maxSessionId = seed.sessions.reduce((max, s) => Math.max(max, s.id), 0)
+    const maxTestimonialId = seed.testimonials.reduce(
+        (max, t) => Math.max(max, t.id),
+        0
+    )
     await setCounter('student', maxStudentId)
     await setCounter('session', maxSessionId)
+    await setCounter('testimonial', maxTestimonialId)
 
     console.log(
         `Seeded ${env}: ${seed.students.length} students, ` +
-            `${seed.sessions.length} sessions. ` +
-            `Counters → student ${maxStudentId}, session ${maxSessionId}.`
+            `${seed.sessions.length} sessions, ` +
+            `${seed.testimonials.length} testimonials. ` +
+            `Counters → student ${maxStudentId}, session ${maxSessionId}, ` +
+            `testimonial ${maxTestimonialId}.`
     )
 }
 

@@ -1,5 +1,6 @@
 import { Student, StudentMode } from '../models/student'
 import { ScheduledSession, SessionStatus } from '../models/session'
+import { Testimonial } from '../models/testimonial'
 
 // Each environment serves a distinct dataset — different people and a
 // different volume — so dev/prod are easy to tell apart in the UI.
@@ -305,15 +306,60 @@ const buildGroupSessions = (
 /** The year the seed timetable covers. */
 export const seedYear = 2026
 
+/**
+ * A few seed testimonials so the public Reviews page and the moderation queue
+ * both have something to show without submitting one by hand (REQ-027). Two are
+ * already approved; one waits in the queue. Prod is provisioned empty, so these
+ * only ever appear in dev / local Azurite / the in-memory store.
+ */
+const buildTestimonials = (): Testimonial[] => [
+    {
+        id: 1,
+        authorName: 'Nadia D.',
+        role: 'Parent',
+        subject: 'Mathematics',
+        year: '10',
+        rating: 5,
+        quote: 'My daughter went from dreading maths to volunteering answers in class. The weekly notes meant I always knew what to practise at home.',
+        status: 'Approved',
+        submittedOn: `${seedYear}-05-12`,
+        moderatedOn: `${seedYear}-05-13`,
+    },
+    {
+        id: 2,
+        authorName: 'James',
+        role: 'Student',
+        subject: 'Physics',
+        rating: 5,
+        quote: 'Lessons finally made sense. We worked through past papers until I felt ready, and my mock grade jumped two levels.',
+        status: 'Approved',
+        submittedOn: `${seedYear}-06-03`,
+        moderatedOn: `${seedYear}-06-04`,
+    },
+    {
+        id: 3,
+        authorName: 'Helen W.',
+        role: 'Parent',
+        rating: 4,
+        quote: 'Reliable, patient and genuinely invested. Booking around our school schedule was never a problem.',
+        status: 'Pending',
+        submittedOn: `${seedYear}-07-15`,
+    },
+]
+
 /** Builds the full dataset (students + a year of classes) for one environment. */
 export const buildSeedForEnv = (
     env: string
-): { students: Student[]; sessions: ScheduledSession[] } => {
+): {
+    students: Student[]
+    sessions: ScheduledSession[]
+    testimonials: Testimonial[]
+} => {
     const config = envSeeds[env] ?? envSeeds[defaultEnv]
     const students = buildStudents(config)
     const sessions = [
         ...buildSessions(students, config, seedYear),
         ...buildGroupSessions(students, seedYear),
     ]
-    return { students, sessions }
+    return { students, sessions, testimonials: buildTestimonials() }
 }

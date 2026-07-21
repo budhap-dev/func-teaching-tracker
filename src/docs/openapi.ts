@@ -46,6 +46,11 @@ export const openApiDocument = {
         { name: 'Students', description: 'Tutored students (REQ-009).' },
         { name: 'Sessions', description: 'Scheduled classes, solo or group.' },
         { name: 'Payments', description: 'Monthly bills and settlements.' },
+        {
+            name: 'Testimonials',
+            description:
+                'Family-submitted reviews (REQ-027). Submitting and reading approved reviews are public; the moderation queue and approve/reject/delete are teacher-only.',
+        },
     ],
     components: {
         securitySchemes: {
@@ -386,6 +391,88 @@ export const openApiDocument = {
                     'records',
                 ],
             },
+
+            // ---- Testimonials (REQ-027) --------------------------------
+            TestimonialStatus: {
+                type: 'string',
+                enum: ['Pending', 'Approved', 'Rejected'],
+            },
+            TestimonialRole: {
+                type: 'string',
+                enum: ['Parent', 'Student'],
+            },
+            Testimonial: {
+                type: 'object',
+                description:
+                    'A family-submitted review. Only Approved ones are returned publicly.',
+                properties: {
+                    id: { type: 'integer', example: 3 },
+                    authorName: { type: 'string', example: 'Nadia D.' },
+                    role: { $ref: '#/components/schemas/TestimonialRole' },
+                    subject: { type: 'string', example: 'Mathematics' },
+                    year: { type: 'string', example: '10' },
+                    rating: {
+                        type: 'integer',
+                        minimum: 1,
+                        maximum: 5,
+                        example: 5,
+                    },
+                    quote: {
+                        type: 'string',
+                        description: 'Plain text; any HTML is stripped on write.',
+                    },
+                    status: { $ref: '#/components/schemas/TestimonialStatus' },
+                    submittedOn: {
+                        type: 'string',
+                        format: 'date',
+                        example: '2026-07-15',
+                    },
+                    moderatedOn: {
+                        type: 'string',
+                        format: 'date',
+                        description: 'Absent while Pending.',
+                    },
+                },
+                required: [
+                    'id',
+                    'authorName',
+                    'role',
+                    'rating',
+                    'quote',
+                    'status',
+                    'submittedOn',
+                ],
+            },
+            TestimonialInput: {
+                type: 'object',
+                description:
+                    'Public submission. subject/year are optional; website is a honeypot real people leave blank.',
+                properties: {
+                    authorName: { type: 'string', maxLength: 80 },
+                    role: { $ref: '#/components/schemas/TestimonialRole' },
+                    subject: { type: 'string', maxLength: 60 },
+                    year: { type: 'string', maxLength: 10 },
+                    rating: { type: 'integer', minimum: 1, maximum: 5 },
+                    quote: { type: 'string', maxLength: 600 },
+                    website: {
+                        type: 'string',
+                        description: 'Honeypot — leave empty.',
+                    },
+                },
+                required: ['authorName', 'role', 'rating', 'quote'],
+            },
+            TestimonialUpdate: {
+                type: 'object',
+                description: 'Moderation. Only Approved or Rejected are settable.',
+                properties: {
+                    status: {
+                        type: 'string',
+                        enum: ['Approved', 'Rejected'],
+                    },
+                },
+                required: ['status'],
+                example: { status: 'Approved' },
+            },
         },
         responses: {
             BadRequest: {
@@ -453,6 +540,13 @@ export const openApiDocument = {
                 in: 'query',
                 required: false,
                 schema: { $ref: '#/components/schemas/PaymentStatus' },
+            },
+            TestimonialIdPath: {
+                name: 'id',
+                in: 'path',
+                required: true,
+                description: 'Numeric testimonial id.',
+                schema: { type: 'integer' },
             },
         },
     },
@@ -867,6 +961,152 @@ export const openApiDocument = {
                     '400': { $ref: '#/components/responses/BadRequest' },
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+        '/testimonials': {
+            get: {
+                tags: ['Testimonials'],
+                summary: 'List approved reviews (public)',
+                description:
+                    'Public. Returns Approved reviews only, newest first — never Pending or Rejected.',
+                operationId: 'getTestimonials',
+                // Public: override the global bearer requirement.
+                security: [],
+                responses: {
+                    '200': {
+                        description: 'Approved testimonials.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/Testimonial',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            post: {
+                tags: ['Testimonials'],
+                summary: 'Submit a review (public)',
+                description:
+                    'Public. Records the review as Pending for teacher moderation; a filled honeypot is silently accepted and dropped. Responds with an acknowledgement, not the stored record.',
+                operationId: 'createTestimonial',
+                security: [],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/TestimonialInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'Submission received.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: { ok: { type: 'boolean' } },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                },
+            },
+        },
+        '/testimonials/pending': {
+            get: {
+                tags: ['Testimonials'],
+                summary: 'List pending reviews (teacher)',
+                description: 'The moderation queue — Pending reviews, newest first.',
+                operationId: 'getPendingTestimonials',
+                responses: {
+                    '200': {
+                        description: 'Pending testimonials.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/Testimonial',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                },
+            },
+        },
+        '/testimonials/{id}': {
+            put: {
+                tags: ['Testimonials'],
+                summary: 'Approve or reject a review (teacher)',
+                operationId: 'updateTestimonial',
+                parameters: [
+                    { $ref: '#/components/parameters/TestimonialIdPath' },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/TestimonialUpdate',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The moderated review.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Testimonial',
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+            delete: {
+                tags: ['Testimonials'],
+                summary: 'Delete a review (teacher)',
+                description:
+                    'Removes a review entirely — spam/abuse, or the GDPR erasure path.',
+                operationId: 'deleteTestimonial',
+                parameters: [
+                    { $ref: '#/components/parameters/TestimonialIdPath' },
+                ],
+                responses: {
+                    '200': {
+                        description: 'Deleted.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: { id: { type: 'integer' } },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
                 },
             },
         },
