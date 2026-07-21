@@ -51,6 +51,11 @@ export const openApiDocument = {
             description:
                 'Family-submitted reviews (REQ-027). Submitting and reading approved reviews are public; the moderation queue and approve/reject/delete are teacher-only.',
         },
+        {
+            name: 'Contact',
+            description:
+                'Public contact details (REQ-006/008). Reading is public; the teacher updates them, and clearing a field removes that method.',
+        },
     ],
     components: {
         securitySchemes: {
@@ -472,6 +477,28 @@ export const openApiDocument = {
                 },
                 required: ['status'],
                 example: { status: 'Approved' },
+            },
+            Contact: {
+                type: 'object',
+                description:
+                    'Public contact details. Both fields are optional — an absent one means the teacher has removed that method.',
+                properties: {
+                    email: { type: 'string', maxLength: 254 },
+                    phone: { type: 'string', maxLength: 40 },
+                },
+                example: {
+                    email: 'hello@example.com',
+                    phone: '+44 7700 900000',
+                },
+            },
+            ContactInput: {
+                type: 'object',
+                description:
+                    'Contact update. Both fields optional; a blank or omitted field removes that method.',
+                properties: {
+                    email: { type: 'string', maxLength: 254 },
+                    phone: { type: 'string', maxLength: 40 },
+                },
             },
         },
         responses: {
@@ -1107,6 +1134,61 @@ export const openApiDocument = {
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
                     '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/contact': {
+            get: {
+                tags: ['Contact'],
+                summary: 'Get contact details (public)',
+                description:
+                    'Public. The email and phone shown on the Contact page; an absent field means that method is not offered.',
+                operationId: 'getContact',
+                // Public: override the global bearer requirement.
+                security: [],
+                responses: {
+                    '200': {
+                        description: 'The contact details.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Contact',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            put: {
+                tags: ['Contact'],
+                summary: 'Update contact details (teacher)',
+                description:
+                    'Replaces the contact details. A blank or omitted field removes that method. The saved record comes back.',
+                operationId: 'updateContact',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/ContactInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The saved contact details.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Contact',
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
                 },
             },
         },
