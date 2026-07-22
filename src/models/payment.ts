@@ -20,18 +20,20 @@ export interface PaymentSettlement {
 
 /**
  * One held class as a bill line item — the itemised detail behind
- * `sessionsHeld`, so the Payment Tracker can show each session that made up a
- * per-session bill and tally them to `amountDue`.
+ * `sessionsHeld`, so the Payment Tracker can show each session behind a bill.
  *
- * The fee is the student's flat per-session price: every held class bills the
- * same amount regardless of `durationMinutes`, which is shown for context only.
+ * On a per-session bill the fee is the student's flat per-session price —
+ * every held class bills the same amount regardless of `durationMinutes`,
+ * which is shown for context only — and the lines tally to `amountDue`. On a
+ * monthly bill each line's fee is 0: the flat retainer covers the classes, so
+ * the dates are listed without re-charging them.
  */
 export interface SessionLine {
     /** ISO date, YYYY-MM-DD, the class took place. */
     date: string
     subject: string
     durationMinutes: number
-    /** The per-session fee charged for this class. */
+    /** The per-session fee charged for this class; 0 on a monthly bill. */
     fee: number
 }
 
@@ -66,9 +68,10 @@ export interface PaymentRecord {
     status: PaymentStatus
     notes: string
     /**
-     * The held classes behind this bill, each a line item (per-session fee
-     * students only — their fees sum to `amountDue`). Empty for monthly/no-fee
-     * students, whose bill isn't itemised per session.
+     * The held classes behind this bill, each a line item. Per-session fees
+     * sum to `amountDue`; a monthly student's lines carry fee 0, their flat
+     * retainer covering the classes. Empty for no-fee students, whose bill
+     * isn't itemised.
      */
     sessions: SessionLine[]
 }

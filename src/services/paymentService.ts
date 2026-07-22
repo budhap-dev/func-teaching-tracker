@@ -75,19 +75,21 @@ const buildRecord = (
               : sessionsHeld * student.fees
     const amountPaid = settlement?.amountPaid ?? 0
 
-    // Itemise a per-session bill, oldest class first, so the total tallies to
-    // amountDue. Monthly/no-fee bills aren't itemised per session.
+    // Itemise the bill's held classes, oldest first. A per-session line
+    // carries its fee (they sum to amountDue); a monthly student's lines
+    // carry fee 0 — the flat retainer covers them, so the dates are listed
+    // without re-charging each class. No-fee bills aren't itemised.
     const sessions: SessionLine[] =
-        feeType === 'per-session'
-            ? [...heldSessions]
+        feeType === 'none'
+            ? []
+            : [...heldSessions]
                   .sort((left, right) => left.date.localeCompare(right.date))
                   .map((session) => ({
                       date: session.date,
                       subject: session.subject,
                       durationMinutes: session.durationMinutes,
-                      fee: student.fees,
+                      fee: feeType === 'monthly' ? 0 : student.fees,
                   }))
-            : []
 
     return {
         id: student.id * 100 + monthIndex,
