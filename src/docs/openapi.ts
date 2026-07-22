@@ -349,7 +349,7 @@ export const openApiDocument = {
                     sessions: {
                         type: 'array',
                         description:
-                            'The held classes behind this bill, each a line item whose fees sum to amountDue. Populated for per-session students only; empty for monthly/no-fee.',
+                            'The held classes behind this bill, each a line item. Per-session fees sum to amountDue; a monthly student’s lines carry fee 0 (the flat retainer covers them). Empty for no-fee students.',
                         items: { $ref: '#/components/schemas/SessionLine' },
                     },
                 },
@@ -371,7 +371,7 @@ export const openApiDocument = {
             SessionLine: {
                 type: 'object',
                 description:
-                    'One held class as a bill line item. The fee is the flat per-session price, independent of durationMinutes (shown for context).',
+                    'One held class as a bill line item. The fee is the flat per-session price, independent of durationMinutes (shown for context); on a monthly bill it is 0.',
                 properties: {
                     date: {
                         type: 'string',
