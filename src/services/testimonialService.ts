@@ -7,6 +7,7 @@ import {
     TestimonialStatus,
     TestimonialUpdate,
 } from '../models/testimonial'
+import { containsProfanity } from '../shared/profanity'
 
 // Length caps. Names and quotes are bounded so a public submit form can't be
 // used to store an essay (or worse) — the quote also has any HTML stripped.
@@ -48,6 +49,10 @@ export const createTestimonial = async (
         return null
     }
     const id = await dataStore.nextTestimonialId()
+    const quote = stripHtml(input.quote)
+    // Flag (don't block) likely-offensive text so the teacher's queue can
+    // highlight it. It still lands as Pending and shows nothing publicly.
+    const flagged = containsProfanity(`${input.authorName} ${quote}`)
     const testimonial: Testimonial = {
         id,
         authorName: input.authorName.trim(),
@@ -55,8 +60,9 @@ export const createTestimonial = async (
         ...(input.subject?.trim() ? { subject: input.subject.trim() } : {}),
         ...(input.year?.trim() ? { year: input.year.trim() } : {}),
         rating: input.rating,
-        quote: stripHtml(input.quote),
+        quote,
         status: 'Pending',
+        ...(flagged ? { flagged: true } : {}),
         submittedOn: today(),
     }
     await dataStore.putTestimonial(testimonial)

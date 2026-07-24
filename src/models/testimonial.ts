@@ -37,6 +37,12 @@ export interface Testimonial {
     /** The written experience — plain text only (any HTML is stripped). */
     quote: string
     status: TestimonialStatus
+    /**
+     * Set when a profanity screen matched the name/quote (REQ-028). It does not
+     * change visibility — it only highlights the review in the teacher's queue
+     * for a closer look. Absent means nothing was flagged.
+     */
+    flagged?: boolean
     /** ISO date, YYYY-MM-DD, when it was submitted. */
     submittedOn: string
     /** ISO date the teacher approved/rejected it; absent while Pending. */
