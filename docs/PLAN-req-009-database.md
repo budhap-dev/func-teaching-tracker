@@ -50,8 +50,8 @@ data plane keyless and AAD-only.
       process (= restart) reading the real UK South tables, then erased
       cleanly. Deployed app cold-starts healthy on tables (401 gate live).
       Terraform in sync (`AUTH_ENFORCED`/`DATA_STORE` now TF-managed).
-- [ ] Phase 6 — prod flipped (empty); docs updated; story ticked; monthly
-      dump script in place (LATER, with the prod move)
+- [x] Phase 6 — prod flipped (empty, UK South); monthly dump script in place
+      (`npm run dump` → src/tools/dump.ts); story ticked 2026-07-24
 
 ## 1. What we're replacing
 
