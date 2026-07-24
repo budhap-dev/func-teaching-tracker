@@ -67,6 +67,10 @@ jobs:
           npm ci
           npm run build
 
+      # The service test suite gates every deploy — a red test stops the ship.
+      - name: Run tests
+        run: npm test
+
       # Ship only production dependencies in the deployment package.
       - name: Prune dev dependencies
         run: npm prune --omit=dev
