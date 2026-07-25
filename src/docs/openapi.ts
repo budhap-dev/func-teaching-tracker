@@ -52,6 +52,11 @@ export const openApiDocument = {
                 'Family-submitted reviews (REQ-027). Submitting and reading approved reviews are public; the moderation queue and approve/reject/delete are teacher-only.',
         },
         {
+            name: 'Leads',
+            description:
+                'Public enquiries (REQ-018/019). Submitting is public; the inbox and status updates are teacher-only.',
+        },
+        {
             name: 'Contact',
             description:
                 'Public contact details (REQ-006/008). Reading is public; the teacher updates them, and clearing a field removes that method.',
@@ -435,6 +440,85 @@ export const openApiDocument = {
             TestimonialRole: {
                 type: 'string',
                 enum: ['Parent', 'Student'],
+            },
+            Lead: {
+                type: 'object',
+                description:
+                    "A public enquiry — a prospect, not a student. At least one of email/phone is present. The teacher works it New → Contacted → Converted.",
+                properties: {
+                    id: { type: 'integer' },
+                    parentName: { type: 'string', example: 'Nadia Patel' },
+                    email: { type: 'string', example: 'nadia@example.com' },
+                    phone: { type: 'string', example: '+44 7700 900123' },
+                    year: { type: 'string', example: '10' },
+                    subjects: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        example: ['Mathematics'],
+                    },
+                    goal: {
+                        type: 'string',
+                        example: 'Confidence before GCSEs.',
+                    },
+                    mode: {
+                        type: 'string',
+                        enum: ['Online', 'Face to Face', 'Either'],
+                    },
+                    status: { $ref: '#/components/schemas/LeadStatus' },
+                    submittedOn: {
+                        type: 'string',
+                        format: 'date',
+                        example: '2026-07-24',
+                    },
+                },
+                required: [
+                    'id',
+                    'parentName',
+                    'year',
+                    'subjects',
+                    'goal',
+                    'mode',
+                    'status',
+                    'submittedOn',
+                ],
+            },
+            LeadStatus: {
+                type: 'string',
+                enum: ['New', 'Contacted', 'Converted'],
+            },
+            LeadInput: {
+                type: 'object',
+                description:
+                    'A public enquiry submission. At least one of email/phone is required. `website` is a honeypot — a hidden field real people leave blank; a filled one marks a bot, which is silently dropped (still answered 201).',
+                properties: {
+                    parentName: { type: 'string', maxLength: 80 },
+                    email: { type: 'string', maxLength: 254 },
+                    phone: { type: 'string', maxLength: 254 },
+                    year: { type: 'string', maxLength: 10 },
+                    subjects: {
+                        type: 'array',
+                        items: { type: 'string', maxLength: 60 },
+                        minItems: 1,
+                        maxItems: 8,
+                    },
+                    goal: { type: 'string', maxLength: 1000 },
+                    mode: {
+                        type: 'string',
+                        enum: ['Online', 'Face to Face', 'Either'],
+                    },
+                    website: {
+                        type: 'string',
+                        description: 'Honeypot — leave blank.',
+                    },
+                },
+                required: ['parentName', 'year', 'subjects', 'goal', 'mode'],
+            },
+            LeadUpdate: {
+                type: 'object',
+                properties: {
+                    status: { $ref: '#/components/schemas/LeadStatus' },
+                },
+                required: ['status'],
             },
             Testimonial: {
                 type: 'object',
@@ -1169,6 +1253,99 @@ export const openApiDocument = {
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
                     '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/leads': {
+            post: {
+                tags: ['Leads'],
+                summary: 'Submit an enquiry (public)',
+                description:
+                    'No auth — anyone may enquire. Lands as New in the teacher inbox. A filled honeypot is silently dropped but still answered 201.',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/LeadInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'Accepted (stored, or honeypot-dropped).',
+                    },
+                    '400': {
+                        description: 'Validation error.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Error',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            get: {
+                tags: ['Leads'],
+                summary: 'List the enquiries inbox (teacher)',
+                security: bearer,
+                responses: {
+                    '200': {
+                        description: 'Every lead, newest first.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/Lead',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '401': { description: 'Missing/invalid token.' },
+                },
+            },
+        },
+        '/leads/{id}': {
+            put: {
+                tags: ['Leads'],
+                summary: 'Update an enquiry status (teacher)',
+                security: bearer,
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/LeadUpdate',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The updated lead.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Lead',
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Validation error.' },
+                    '404': { description: 'Unknown lead id.' },
                 },
             },
         },

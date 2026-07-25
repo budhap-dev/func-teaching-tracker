@@ -2,6 +2,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Lead } from '../models/lead'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 import { buildSeedForEnv } from './seed'
@@ -21,6 +22,7 @@ export class MemoryStore implements DataStore {
     private sessions: ScheduledSession[]
     private settlements: PaymentSettlement[]
     private testimonials: Testimonial[]
+    private leads: Lead[]
     private contact: Contact
 
     constructor(environmentName: string) {
@@ -29,6 +31,8 @@ export class MemoryStore implements DataStore {
         this.sessions = seed.sessions
         this.settlements = []
         this.testimonials = seed.testimonials
+        // Leads start empty everywhere: enquiries are real-world input, never seeded.
+        this.leads = []
         this.contact = seed.contact
     }
 
@@ -122,6 +126,28 @@ export class MemoryStore implements DataStore {
         } else {
             this.settlements.push(settlement)
         }
+    }
+
+    // --- Leads ---
+    async listLeads(): Promise<Lead[]> {
+        return this.leads
+    }
+
+    async getLead(id: number): Promise<Lead | undefined> {
+        return this.leads.find((lead) => lead.id === id)
+    }
+
+    async putLead(lead: Lead): Promise<void> {
+        const index = this.leads.findIndex((item) => item.id === lead.id)
+        if (index >= 0) {
+            this.leads[index] = lead
+        } else {
+            this.leads.push(lead)
+        }
+    }
+
+    async nextLeadId(): Promise<number> {
+        return this.leads.reduce((max, lead) => Math.max(max, lead.id), 0) + 1
     }
 
     // --- Testimonials ---
