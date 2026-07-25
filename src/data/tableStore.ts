@@ -4,6 +4,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Lead } from '../models/lead'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 
@@ -26,6 +27,7 @@ const STUDENT_PK = 'student'
 const SESSION_PK = 'session'
 const SETTLEMENT_PK = 'settlement'
 const TESTIMONIAL_PK = 'testimonial'
+const LEAD_PK = 'lead'
 const CONTACT_PK = 'contact'
 const COUNTER_PK = 'counter'
 // The contact record is a singleton — one fixed key, always overwritten.
@@ -33,6 +35,7 @@ const CONTACT_ROW = 'contact'
 const STUDENT_WIDTH = 6
 const SESSION_WIDTH = 8
 const TESTIMONIAL_WIDTH = 6
+const LEAD_WIDTH = 6
 
 /** The well-known Azurite emulator account key — a documented public constant. */
 const AZURITE_KEY =
@@ -68,6 +71,7 @@ export const TABLE_NAMES = [
     'sessions',
     'settlements',
     'testimonials',
+    'leads',
     'contact',
     'counters',
 ] as const
@@ -263,6 +267,36 @@ const fromTestimonialRow = (e: Row): Testimonial => ({
     ...(e.moderatedOn ? { moderatedOn: e.moderatedOn as string } : {}),
 })
 
+const toLeadRow = (l: Lead): Row => ({
+    partitionKey: LEAD_PK,
+    rowKey: pad(l.id, LEAD_WIDTH),
+    id: l.id,
+    parentName: l.parentName,
+    // At least one contact field is always present (validated on create);
+    // written only when given so a Replace upsert drops a blank one.
+    ...(l.email ? { email: l.email } : {}),
+    ...(l.phone ? { phone: l.phone } : {}),
+    year: l.year,
+    subjectsJson: JSON.stringify(l.subjects),
+    goal: l.goal,
+    mode: l.mode,
+    status: l.status,
+    submittedOn: l.submittedOn,
+})
+
+const fromLeadRow = (e: Row): Lead => ({
+    id: e.id as number,
+    parentName: e.parentName as string,
+    ...(e.email ? { email: e.email as string } : {}),
+    ...(e.phone ? { phone: e.phone as string } : {}),
+    year: e.year as string,
+    subjects: JSON.parse((e.subjectsJson as string) ?? '[]'),
+    goal: e.goal as string,
+    mode: e.mode as Lead['mode'],
+    status: e.status as Lead['status'],
+    submittedOn: e.submittedOn as string,
+})
+
 const toContactRow = (c: Contact): Row => ({
     partitionKey: CONTACT_PK,
     rowKey: CONTACT_ROW,
@@ -284,6 +318,7 @@ export class TableStore implements DataStore {
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
     private testimonials = tableClientFor('testimonials')
+    private leads = tableClientFor('leads')
     private contact = tableClientFor('contact')
     private counters = tableClientFor('counters')
 
@@ -447,6 +482,44 @@ export class TableStore implements DataStore {
     // --- Testimonials ---
     // Each entry point ensures the table exists first — it was added to the
     // store after some environments were provisioned (REQ-027).
+    // --- Leads --- (create-on-first-use, like testimonials: the table may
+    // not exist yet in an environment provisioned before REQ-018.)
+    async listLeads(): Promise<Lead[]> {
+        await ensureTable(this.leads)
+        const rows = await collect(
+            this.leads.listEntities<Row>({
+                queryOptions: { filter: odata`PartitionKey eq ${LEAD_PK}` },
+            })
+        )
+        return rows.map(fromLeadRow)
+    }
+
+    async getLead(id: number): Promise<Lead | undefined> {
+        await ensureTable(this.leads)
+        try {
+            const row = await this.leads.getEntity<Row>(
+                LEAD_PK,
+                pad(id, LEAD_WIDTH)
+            )
+            return fromLeadRow(row)
+        } catch (error) {
+            if (notFound(error)) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
+    async putLead(lead: Lead): Promise<void> {
+        await ensureTable(this.leads)
+        await this.leads.upsertEntity(toLeadRow(lead), 'Replace')
+    }
+
+    async nextLeadId(): Promise<number> {
+        const [id] = await this.reserveIds('lead', 1)
+        return id
+    }
+
     async listTestimonials(): Promise<Testimonial[]> {
         await ensureTable(this.testimonials)
         const rows = await collect(
@@ -531,7 +604,7 @@ export class TableStore implements DataStore {
      * only place that pays for concurrency control.
      */
     private async reserveIds(
-        name: 'student' | 'session' | 'testimonial',
+        name: 'student' | 'session' | 'testimonial' | 'lead',
         count: number
     ): Promise<number[]> {
         for (let attempt = 0; attempt < 8; attempt += 1) {

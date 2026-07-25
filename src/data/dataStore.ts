@@ -2,6 +2,7 @@ import { Student } from '../models/student'
 import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
+import { Lead } from '../models/lead'
 import { Contact } from '../models/contact'
 
 /**
@@ -54,6 +55,14 @@ export interface DataStore {
     ): Promise<PaymentSettlement | undefined>
     /** Creates or replaces the settlement for one (student, month). */
     putSettlement(settlement: PaymentSettlement): Promise<void>
+
+    // --- Leads (REQ-018/019) ---
+    listLeads(): Promise<Lead[]>
+    getLead(id: number): Promise<Lead | undefined>
+    /** Creates or replaces a lead by id. */
+    putLead(lead: Lead): Promise<void>
+    /** Reserves the next numeric lead id. */
+    nextLeadId(): Promise<number>
 
     // --- Testimonials (REQ-027) ---
     listTestimonials(): Promise<Testimonial[]>
