@@ -1,0 +1,175 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SiteContent } from '../models/siteContent'
+import { defaultSiteContent } from '../data/defaultSiteContent'
+
+/** Mutable fake store, reset per test. */
+const fake = { content: undefined as SiteContent | undefined }
+
+vi.mock('../data/store', () => ({
+    environmentName: 'test',
+    dataStore: {
+        getSiteContent: async () => fake.content,
+        putSiteContent: async (content: SiteContent) => {
+            fake.content = content
+        },
+    },
+}))
+
+import {
+    getSiteContent,
+    updateSiteContent,
+    validateSiteContentInput,
+} from './siteContentService'
+
+/** A valid publish payload, tweakable per test. */
+const input = (overrides: Record<string, unknown> = {}) =>
+    ({
+        ...structuredClone(defaultSiteContent),
+        freeform: { heading: 'Notices', markdown: 'Term starts **soon**.' },
+        ...overrides,
+    }) as SiteContent
+
+beforeEach(() => {
+    fake.content = undefined
+})
+
+describe('getSiteContent', () => {
+    it('serves the bundled defaults until the teacher publishes', async () => {
+        expect(await getSiteContent()).toEqual(defaultSiteContent)
+    })
+
+    it('serves the published document once one exists', async () => {
+        fake.content = input({ siteName: 'Harbour Tuition' })
+        expect((await getSiteContent()).siteName).toBe('Harbour Tuition')
+    })
+})
+
+describe('updateSiteContent', () => {
+    it('publishes atomically — the next read sees the new document', async () => {
+        const published = await updateSiteContent(
+            input({ siteName: 'Harbour Tuition' })
+        )
+
+        expect(published.siteName).toBe('Harbour Tuition')
+        expect(await getSiteContent()).toEqual(published)
+    })
+
+    it('strips raw HTML from every field on write, keeping Markdown', async () => {
+        const published = await updateSiteContent(
+            input({
+                siteName: 'Spring<script>alert(1)</script>board',
+                hero: {
+                    headline: 'Confident <b>tutoring</b>.',
+                    subhead: 'Lessons <img src=x onerror=alert(1)> weekly.',
+                    availability: '',
+                },
+                freeform: {
+                    heading: 'About <i>us</i>',
+                    markdown:
+                        'We teach **properly**.\n<script>alert(1)</script>\n- and *kindly*',
+                },
+            })
+        )
+
+        expect(published.siteName).toBe('Springboard')
+        expect(published.hero.headline).toBe('Confident tutoring.')
+        expect(published.hero.subhead).toBe('Lessons  weekly.')
+        // Markdown markup survives; tags don't.
+        expect(published.freeform.markdown).toContain('**properly**')
+        expect(published.freeform.markdown).toContain('- and *kindly*')
+        expect(published.freeform.markdown).not.toContain('<script>')
+    })
+
+    it('trims and preserves the chosen section order', async () => {
+        const published = await updateSiteContent(
+            input({
+                sectionOrder: [
+                    'freeform',
+                    'hero',
+                    'subjects',
+                    'approach',
+                    'journey',
+                ],
+            })
+        )
+        expect(published.sectionOrder).toEqual([
+            'freeform',
+            'hero',
+            'subjects',
+            'approach',
+            'journey',
+        ])
+    })
+
+    it('drops empty optional subject tag lists', async () => {
+        const published = await updateSiteContent(
+            input({
+                subjects: [{ name: ' Maths ', keyStages: [] }],
+            })
+        )
+        expect(published.subjects[0]).toEqual({ name: 'Maths' })
+    })
+})
+
+describe('validateSiteContentInput', () => {
+    it.each([
+        [undefined, 'must be a site-content object'],
+        [input({ siteName: ' ' }), 'siteName is required'],
+        [input({ siteName: 'x'.repeat(61) }), 'characters or fewer'],
+        [input({ hero: undefined }), 'hero is required'],
+        [
+            input({ hero: { headline: '', subhead: 'x', availability: '' } }),
+            'hero.headline is required',
+        ],
+        [input({ subjects: [] }), 'subjects must be a non-empty list'],
+        [input({ subjects: [{ name: ' ' }] }), 'subjects[0].name is required'],
+        [
+            input({ subjects: [{ name: 'Maths', examBoards: ['', 'AQA'] }] }),
+            'examBoards must be a list of names',
+        ],
+        [input({ journey: [] }), 'journey must be a non-empty list'],
+        [
+            input({ journey: [{ title: 'Enquire', detail: ' ' }] }),
+            'journey[0].detail is required',
+        ],
+        [input({ approach: [{ title: '', detail: 'x' }] }), 'approach[0].title'],
+        [input({ freeform: undefined }), 'freeform is required'],
+        [
+            input({ freeform: { heading: 'x', markdown: 'y'.repeat(5001) } }),
+            'freeform.markdown must be 5000',
+        ],
+        [
+            input({ sectionOrder: ['hero', 'subjects'] }),
+            'sectionOrder must contain each of',
+        ],
+        [
+            input({
+                sectionOrder: [
+                    'hero',
+                    'hero',
+                    'subjects',
+                    'journey',
+                    'approach',
+                ],
+            }),
+            'sectionOrder must contain each of',
+        ],
+    ])('rejects %j', (raw, message) => {
+        expect(
+            validateSiteContentInput(
+                raw as Parameters<typeof validateSiteContentInput>[0]
+            )
+        ).toContain(message)
+    })
+
+    it('accepts the defaults and an empty availability line', () => {
+        expect(validateSiteContentInput(input())).toBeUndefined()
+        expect(
+            validateSiteContentInput(
+                input({
+                    hero: { ...defaultSiteContent.hero, availability: '' },
+                })
+            )
+        ).toBeUndefined()
+    })
+})

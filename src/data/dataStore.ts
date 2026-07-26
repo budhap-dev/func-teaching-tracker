@@ -3,6 +3,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 
 /**
@@ -55,6 +56,12 @@ export interface DataStore {
     ): Promise<PaymentSettlement | undefined>
     /** Creates or replaces the settlement for one (student, month). */
     putSettlement(settlement: PaymentSettlement): Promise<void>
+
+    // --- Site content (REQ-008) ---
+    /** The published document, or undefined when never published. */
+    getSiteContent(): Promise<SiteContent | undefined>
+    /** Replaces the published document atomically. */
+    putSiteContent(content: SiteContent): Promise<void>
 
     // --- Leads (REQ-018/019) ---
     listLeads(): Promise<Lead[]>

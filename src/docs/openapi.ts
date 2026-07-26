@@ -52,6 +52,11 @@ export const openApiDocument = {
                 'Family-submitted reviews (REQ-027). Submitting and reading approved reviews are public; the moderation queue and approve/reject/delete are teacher-only.',
         },
         {
+            name: 'Site content',
+            description:
+                'The public site’s editable content (REQ-008). Reading is public; publishing is teacher-only, sanitised on write.',
+        },
+        {
             name: 'Leads',
             description:
                 'Public enquiries (REQ-018/019). Submitting is public; the inbox and status updates are teacher-only.',
@@ -440,6 +445,109 @@ export const openApiDocument = {
             TestimonialRole: {
                 type: 'string',
                 enum: ['Parent', 'Student'],
+            },
+            SiteContent: {
+                type: 'object',
+                description:
+                    'Everything the public pages render, published atomically by the teacher. sectionOrder holds each section key exactly once and dictates page structure. The freeform body is Markdown — raw HTML is stripped on write.',
+                properties: {
+                    siteName: { type: 'string', maxLength: 60 },
+                    hero: {
+                        type: 'object',
+                        properties: {
+                            headline: { type: 'string', maxLength: 200 },
+                            subhead: { type: 'string', maxLength: 400 },
+                            availability: {
+                                type: 'string',
+                                maxLength: 200,
+                                description: 'May be empty (hides the line).',
+                            },
+                        },
+                        required: ['headline', 'subhead', 'availability'],
+                    },
+                    subjects: {
+                        type: 'array',
+                        minItems: 1,
+                        maxItems: 12,
+                        items: {
+                            type: 'object',
+                            properties: {
+                                name: { type: 'string', maxLength: 60 },
+                                keyStages: {
+                                    type: 'array',
+                                    items: { type: 'string', maxLength: 30 },
+                                },
+                                examBoards: {
+                                    type: 'array',
+                                    items: { type: 'string', maxLength: 30 },
+                                },
+                                modes: {
+                                    type: 'array',
+                                    items: { type: 'string', maxLength: 30 },
+                                },
+                            },
+                            required: ['name'],
+                        },
+                    },
+                    journey: {
+                        type: 'array',
+                        minItems: 1,
+                        maxItems: 12,
+                        items: { $ref: '#/components/schemas/TitledDetail' },
+                    },
+                    approach: {
+                        type: 'array',
+                        minItems: 1,
+                        maxItems: 12,
+                        items: { $ref: '#/components/schemas/TitledDetail' },
+                    },
+                    freeform: {
+                        type: 'object',
+                        properties: {
+                            heading: { type: 'string', maxLength: 200 },
+                            markdown: {
+                                type: 'string',
+                                maxLength: 5000,
+                                description:
+                                    'Markdown only; raw HTML is stripped on write.',
+                            },
+                        },
+                        required: ['heading', 'markdown'],
+                    },
+                    sectionOrder: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                            enum: [
+                                'hero',
+                                'subjects',
+                                'journey',
+                                'approach',
+                                'freeform',
+                            ],
+                        },
+                        minItems: 5,
+                        maxItems: 5,
+                        description: 'Each key exactly once.',
+                    },
+                },
+                required: [
+                    'siteName',
+                    'hero',
+                    'subjects',
+                    'journey',
+                    'approach',
+                    'freeform',
+                    'sectionOrder',
+                ],
+            },
+            TitledDetail: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string', maxLength: 200 },
+                    detail: { type: 'string', maxLength: 400 },
+                },
+                required: ['title', 'detail'],
             },
             Lead: {
                 type: 'object',
@@ -1253,6 +1361,57 @@ export const openApiDocument = {
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
                     '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/site-content': {
+            get: {
+                tags: ['Site content'],
+                summary: 'Read the public site content (public)',
+                description:
+                    'What the public pages render. Serves bundled defaults until the teacher first publishes — never blank.',
+                responses: {
+                    '200': {
+                        description: 'The published (or default) document.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/SiteContent',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            put: {
+                tags: ['Site content'],
+                summary: 'Publish the public site content (teacher)',
+                description:
+                    'Replaces the whole document atomically; live for the next public GET. Every field is HTML-stripped server-side.',
+                security: bearer,
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/SiteContent',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The published document, as sanitised.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/SiteContent',
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Validation error.' },
+                    '401': { description: 'Missing/invalid token.' },
                 },
             },
         },
