@@ -1,0 +1,239 @@
+import { dataStore } from '../data/store'
+import { defaultSiteContent } from '../data/defaultSiteContent'
+import {
+    SectionKey,
+    sectionKeys,
+    SiteContent,
+    SiteContentInput,
+} from '../models/siteContent'
+
+// Length caps: generous for real copy, tight enough that the endpoint can't
+// be used as free storage. The markdown body is the long field.
+const MAX_NAME = 60
+const MAX_LINE = 200
+const MAX_SUBHEAD = 400
+const MAX_LIST = 12
+const MAX_TAGS = 8
+const MAX_TAG = 30
+const MAX_DETAIL = 400
+const MAX_MARKDOWN = 5000
+
+/**
+ * Strips raw HTML from a value on write (REQ-008's API-side control): the
+ * stored document never contains tags, so no renderer downstream can be
+ * tricked into emitting them. Script/style blocks lose their contents too —
+ * stripping only the tags would leave the payload behind as text. Markdown
+ * markup survives untouched.
+ */
+const stripHtml = (text: string): string =>
+    text
+        .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+        .replace(/<[^>]*>/g, '')
+
+const clean = (text: string): string => stripHtml(text).trim()
+
+/** The published content, or the bundled defaults when none exists yet. */
+export const getSiteContent = async (): Promise<SiteContent> =>
+    (await dataStore.getSiteContent()) ?? defaultSiteContent
+
+/**
+ * Publishes the whole document atomically — live for the next public GET,
+ * no rebuild or deploy. Every text field is HTML-stripped and trimmed here,
+ * on the API side, regardless of what the browser did.
+ */
+export const updateSiteContent = async (
+    input: SiteContentInput
+): Promise<SiteContent> => {
+    const content: SiteContent = {
+        siteName: clean(input.siteName),
+        hero: {
+            headline: clean(input.hero.headline),
+            subhead: clean(input.hero.subhead),
+            availability: clean(input.hero.availability),
+        },
+        subjects: input.subjects.map((subject) => ({
+            name: clean(subject.name),
+            ...(subject.keyStages?.length
+                ? { keyStages: subject.keyStages.map(clean) }
+                : {}),
+            ...(subject.examBoards?.length
+                ? { examBoards: subject.examBoards.map(clean) }
+                : {}),
+            ...(subject.modes?.length
+                ? { modes: subject.modes.map(clean) }
+                : {}),
+        })),
+        journey: input.journey.map((step) => ({
+            title: clean(step.title),
+            detail: clean(step.detail),
+        })),
+        approach: input.approach.map((point) => ({
+            title: clean(point.title),
+            detail: clean(point.detail),
+        })),
+        freeform: {
+            heading: clean(input.freeform.heading),
+            // Markdown keeps its markup; only raw HTML is removed.
+            markdown: stripHtml(input.freeform.markdown).trim(),
+        },
+        sectionOrder: [...input.sectionOrder],
+    }
+    await dataStore.putSiteContent(content)
+    return content
+}
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+
+const isNonEmptyString = (value: unknown): value is string =>
+    isString(value) && value.trim().length > 0
+
+/** A short titled-detail pair (journey step / approach point). */
+const pairError = (
+    value: unknown,
+    at: string
+): string | undefined => {
+    const pair = value as { title?: unknown; detail?: unknown }
+    if (!pair || typeof pair !== 'object') {
+        return `${at} must be an object.`
+    }
+    if (!isNonEmptyString(pair.title)) {
+        return `${at}.title is required.`
+    }
+    if (pair.title.trim().length > MAX_LINE) {
+        return `${at}.title must be ${MAX_LINE} characters or fewer.`
+    }
+    if (!isNonEmptyString(pair.detail)) {
+        return `${at}.detail is required.`
+    }
+    if (pair.detail.trim().length > MAX_DETAIL) {
+        return `${at}.detail must be ${MAX_DETAIL} characters or fewer.`
+    }
+    return undefined
+}
+
+const tagListError = (
+    value: unknown,
+    at: string
+): string | undefined => {
+    if (value === undefined) {
+        return undefined
+    }
+    if (!Array.isArray(value) || !value.every(isNonEmptyString)) {
+        return `${at} must be a list of names.`
+    }
+    if (value.length > MAX_TAGS) {
+        return `${at} must list ${MAX_TAGS} or fewer.`
+    }
+    if (value.some((tag) => tag.trim().length > MAX_TAG)) {
+        return `${at} entries must be ${MAX_TAG} characters or fewer.`
+    }
+    return undefined
+}
+
+/** Validates a publish payload, returning an error string when invalid. */
+export const validateSiteContentInput = (
+    input: Partial<SiteContentInput> | undefined
+): string | undefined => {
+    if (!input || typeof input !== 'object') {
+        return 'Request body must be a site-content object.'
+    }
+    if (!isNonEmptyString(input.siteName)) {
+        return 'siteName is required.'
+    }
+    if (input.siteName.trim().length > MAX_NAME) {
+        return `siteName must be ${MAX_NAME} characters or fewer.`
+    }
+
+    const hero = input.hero as SiteContent['hero'] | undefined
+    if (!hero || typeof hero !== 'object') {
+        return 'hero is required.'
+    }
+    if (!isNonEmptyString(hero.headline)) {
+        return 'hero.headline is required.'
+    }
+    if (hero.headline.trim().length > MAX_LINE) {
+        return `hero.headline must be ${MAX_LINE} characters or fewer.`
+    }
+    if (!isNonEmptyString(hero.subhead)) {
+        return 'hero.subhead is required.'
+    }
+    if (hero.subhead.trim().length > MAX_SUBHEAD) {
+        return `hero.subhead must be ${MAX_SUBHEAD} characters or fewer.`
+    }
+    if (!isString(hero.availability)) {
+        return 'hero.availability must be a string (may be empty).'
+    }
+    if (hero.availability.trim().length > MAX_LINE) {
+        return `hero.availability must be ${MAX_LINE} characters or fewer.`
+    }
+
+    if (!Array.isArray(input.subjects) || input.subjects.length === 0) {
+        return 'subjects must be a non-empty list.'
+    }
+    if (input.subjects.length > MAX_LIST) {
+        return `subjects must list ${MAX_LIST} or fewer.`
+    }
+    for (const [index, subject] of input.subjects.entries()) {
+        const at = `subjects[${index}]`
+        if (!subject || typeof subject !== 'object') {
+            return `${at} must be an object.`
+        }
+        if (!isNonEmptyString(subject.name)) {
+            return `${at}.name is required.`
+        }
+        if (subject.name.trim().length > MAX_NAME) {
+            return `${at}.name must be ${MAX_NAME} characters or fewer.`
+        }
+        const listError =
+            tagListError(subject.keyStages, `${at}.keyStages`) ??
+            tagListError(subject.examBoards, `${at}.examBoards`) ??
+            tagListError(subject.modes, `${at}.modes`)
+        if (listError) {
+            return listError
+        }
+    }
+
+    for (const [name, list] of [
+        ['journey', input.journey],
+        ['approach', input.approach],
+    ] as const) {
+        if (!Array.isArray(list) || list.length === 0) {
+            return `${name} must be a non-empty list.`
+        }
+        if (list.length > MAX_LIST) {
+            return `${name} must list ${MAX_LIST} or fewer.`
+        }
+        for (const [index, pair] of list.entries()) {
+            const error = pairError(pair, `${name}[${index}]`)
+            if (error) {
+                return error
+            }
+        }
+    }
+
+    const freeform = input.freeform as SiteContent['freeform'] | undefined
+    if (!freeform || typeof freeform !== 'object') {
+        return 'freeform is required.'
+    }
+    if (!isString(freeform.heading) || !isString(freeform.markdown)) {
+        return 'freeform.heading and freeform.markdown must be strings.'
+    }
+    if (freeform.heading.trim().length > MAX_LINE) {
+        return `freeform.heading must be ${MAX_LINE} characters or fewer.`
+    }
+    if (freeform.markdown.length > MAX_MARKDOWN) {
+        return `freeform.markdown must be ${MAX_MARKDOWN} characters or fewer.`
+    }
+
+    // The order must be every section key exactly once — a permutation, so a
+    // page can never lose or duplicate a section.
+    const order = input.sectionOrder as SectionKey[] | undefined
+    if (
+        !Array.isArray(order) ||
+        order.length !== sectionKeys.length ||
+        [...sectionKeys].some((key) => !order.includes(key))
+    ) {
+        return `sectionOrder must contain each of ${sectionKeys.join(', ')} exactly once.`
+    }
+    return undefined
+}

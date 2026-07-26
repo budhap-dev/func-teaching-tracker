@@ -3,6 +3,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 import { buildSeedForEnv } from './seed'
@@ -23,6 +24,7 @@ export class MemoryStore implements DataStore {
     private settlements: PaymentSettlement[]
     private testimonials: Testimonial[]
     private leads: Lead[]
+    private siteContent: SiteContent | undefined
     private contact: Contact
 
     constructor(environmentName: string) {
@@ -33,6 +35,8 @@ export class MemoryStore implements DataStore {
         this.testimonials = seed.testimonials
         // Leads start empty everywhere: enquiries are real-world input, never seeded.
         this.leads = []
+        // Unpublished until the teacher publishes — the service serves defaults.
+        this.siteContent = undefined
         this.contact = seed.contact
     }
 
@@ -126,6 +130,15 @@ export class MemoryStore implements DataStore {
         } else {
             this.settlements.push(settlement)
         }
+    }
+
+    // --- Site content ---
+    async getSiteContent(): Promise<SiteContent | undefined> {
+        return this.siteContent
+    }
+
+    async putSiteContent(content: SiteContent): Promise<void> {
+        this.siteContent = content
     }
 
     // --- Leads ---

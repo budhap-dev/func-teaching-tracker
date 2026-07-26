@@ -5,6 +5,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
 
@@ -28,6 +29,8 @@ const SESSION_PK = 'session'
 const SETTLEMENT_PK = 'settlement'
 const TESTIMONIAL_PK = 'testimonial'
 const LEAD_PK = 'lead'
+const SITECONTENT_PK = 'sitecontent'
+const SITECONTENT_ROW = 'sitecontent'
 const CONTACT_PK = 'contact'
 const COUNTER_PK = 'counter'
 // The contact record is a singleton — one fixed key, always overwritten.
@@ -72,6 +75,7 @@ export const TABLE_NAMES = [
     'settlements',
     'testimonials',
     'leads',
+    'sitecontent',
     'contact',
     'counters',
 ] as const
@@ -319,6 +323,7 @@ export class TableStore implements DataStore {
     private settlements = tableClientFor('settlements')
     private testimonials = tableClientFor('testimonials')
     private leads = tableClientFor('leads')
+    private siteContent = tableClientFor('sitecontent')
     private contact = tableClientFor('contact')
     private counters = tableClientFor('counters')
 
@@ -482,6 +487,37 @@ export class TableStore implements DataStore {
     // --- Testimonials ---
     // Each entry point ensures the table exists first — it was added to the
     // store after some environments were provisioned (REQ-027).
+    // --- Site content (REQ-008) --- One row, the whole document as JSON:
+    // published atomically, read whole — no per-field columns to drift.
+    async getSiteContent(): Promise<SiteContent | undefined> {
+        await ensureTable(this.siteContent)
+        try {
+            const row = await this.siteContent.getEntity<Row>(
+                SITECONTENT_PK,
+                SITECONTENT_ROW
+            )
+            return JSON.parse(row.contentJson as string)
+        } catch (error) {
+            // Never published yet — the service serves the bundled defaults.
+            if (notFound(error)) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
+    async putSiteContent(content: SiteContent): Promise<void> {
+        await ensureTable(this.siteContent)
+        await this.siteContent.upsertEntity(
+            {
+                partitionKey: SITECONTENT_PK,
+                rowKey: SITECONTENT_ROW,
+                contentJson: JSON.stringify(content),
+            },
+            'Replace'
+        )
+    }
+
     // --- Leads --- (create-on-first-use, like testimonials: the table may
     // not exist yet in an environment provisioned before REQ-018.)
     async listLeads(): Promise<Lead[]> {
