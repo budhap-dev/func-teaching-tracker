@@ -159,6 +159,10 @@ export class MemoryStore implements DataStore {
         }
     }
 
+    async deleteLead(id: number): Promise<void> {
+        this.leads = this.leads.filter((lead) => lead.id !== id)
+    }
+
     async nextLeadId(): Promise<number> {
         return this.leads.reduce((max, lead) => Math.max(max, lead.id), 0) + 1
     }

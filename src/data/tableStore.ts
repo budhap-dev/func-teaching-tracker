@@ -551,6 +551,16 @@ export class TableStore implements DataStore {
         await this.leads.upsertEntity(toLeadRow(lead), 'Replace')
     }
 
+    async deleteLead(id: number): Promise<void> {
+        await ensureTable(this.leads)
+        await this.leads
+            .deleteEntity(LEAD_PK, pad(id, LEAD_WIDTH))
+            .catch((error) => {
+                // Already gone is fine — deleting an enquiry is idempotent.
+                if (!notFound(error)) throw error
+            })
+    }
+
     async nextLeadId(): Promise<number> {
         const [id] = await this.reserveIds('lead', 1)
         return id

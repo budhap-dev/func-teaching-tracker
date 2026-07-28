@@ -78,6 +78,19 @@ export const setLeadStatus = async (
     return updated
 }
 
+/**
+ * Permanently removes an enquiry — the erasure path (REQ-032): a parent asks
+ * to be forgotten, or the enquiry was spam. Returns false when unknown.
+ */
+export const deleteLead = async (id: number): Promise<boolean> => {
+    const lead = await dataStore.getLead(id)
+    if (!lead) {
+        return false
+    }
+    await dataStore.deleteLead(id)
+    return true
+}
+
 const isNonEmptyString = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0
 

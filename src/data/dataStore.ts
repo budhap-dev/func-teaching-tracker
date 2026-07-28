@@ -68,6 +68,8 @@ export interface DataStore {
     getLead(id: number): Promise<Lead | undefined>
     /** Creates or replaces a lead by id. */
     putLead(lead: Lead): Promise<void>
+    /** Permanently removes a lead by id (spam, or GDPR erasure — REQ-032). */
+    deleteLead(id: number): Promise<void>
     /** Reserves the next numeric lead id. */
     nextLeadId(): Promise<number>
 

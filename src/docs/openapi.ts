@@ -1507,6 +1507,38 @@ export const openApiDocument = {
                     '404': { description: 'Unknown lead id.' },
                 },
             },
+            delete: {
+                tags: ['Leads'],
+                summary: 'Delete an enquiry permanently (teacher)',
+                description:
+                    'Removes the enquiry entirely — the GDPR erasure path (REQ-032), or spam removal. Unlike a status change, nothing is kept.',
+                security: bearer,
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                responses: {
+                    '200': {
+                        description: 'The removed id.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        id: { type: 'integer' },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Non-integer id.' },
+                    '404': { description: 'Unknown lead id.' },
+                },
+            },
         },
         '/contact': {
             get: {
