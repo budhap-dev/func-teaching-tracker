@@ -19,12 +19,16 @@ vi.mock('../data/store', () => ({
                 lead,
             ]
         },
+        deleteLead: async (id: number) => {
+            fake.leads = fake.leads.filter((item) => item.id !== id)
+        },
         nextLeadId: async () => fake.nextId++,
     },
 }))
 
 import {
     createLead,
+    deleteLead,
     listLeads,
     setLeadStatus,
     validateLeadInput,
@@ -172,5 +176,24 @@ describe('validateLeadUpdate', () => {
         expect(validateLeadUpdate({ status: 'Converted' })).toBeUndefined()
         expect(validateLeadUpdate({ status: 'Won' as never })).toBeTruthy()
         expect(validateLeadUpdate(undefined)).toBeTruthy()
+    })
+})
+
+describe('deleteLead', () => {
+    it('erases an enquiry permanently, reporting whether it existed', async () => {
+        fake.leads = [lead({ id: 7 })]
+
+        expect(await deleteLead(7)).toBe(true)
+        expect(fake.leads).toHaveLength(0)
+        // Idempotent from the caller's view: a second delete is a clean miss.
+        expect(await deleteLead(7)).toBe(false)
+    })
+
+    it('leaves other enquiries untouched', async () => {
+        fake.leads = [lead({ id: 1 }), lead({ id: 2, parentName: 'Sam Ba' })]
+
+        await deleteLead(1)
+
+        expect(fake.leads.map((item) => item.id)).toEqual([2])
     })
 })
