@@ -308,11 +308,20 @@ const toContactRow = (c: Contact): Row => ({
     // so an absent column reads back as "not offered".
     ...(c.email ? { email: c.email } : {}),
     ...(c.phone ? { phone: c.phone } : {}),
+    // Nested per-channel notes ride as JSON, like subjects on a student.
+    ...(c.availability
+        ? { availabilityJson: JSON.stringify(c.availability) }
+        : {}),
+    ...(c.preferred ? { preferred: c.preferred } : {}),
 })
 
 const fromContactRow = (e: Row): Contact => ({
     ...(e.email ? { email: e.email as string } : {}),
     ...(e.phone ? { phone: e.phone as string } : {}),
+    ...(e.availabilityJson
+        ? { availability: JSON.parse(e.availabilityJson as string) }
+        : {}),
+    ...(e.preferred ? { preferred: e.preferred as Contact['preferred'] } : {}),
 })
 
 // --- The adapter --------------------------------------------------------------

@@ -705,26 +705,56 @@ export const openApiDocument = {
                 required: ['status'],
                 example: { status: 'Approved' },
             },
+            ContactAvailability: {
+                type: 'object',
+                description:
+                    'Free-text availability note per channel — prose, not a timetable. Entries survive only for channels that are offered.',
+                properties: {
+                    email: { type: 'string', maxLength: 140 },
+                    call: { type: 'string', maxLength: 140 },
+                    whatsapp: { type: 'string', maxLength: 140 },
+                },
+            },
             Contact: {
                 type: 'object',
                 description:
-                    'Public contact details. Both fields are optional — an absent one means the teacher has removed that method.',
+                    'Public contact details. Both fields are optional — an absent one means the teacher has removed that method. Call and WhatsApp share the one phone number.',
                 properties: {
                     email: { type: 'string', maxLength: 254 },
                     phone: { type: 'string', maxLength: 40 },
+                    availability: {
+                        $ref: '#/components/schemas/ContactAvailability',
+                    },
+                    preferred: {
+                        type: 'string',
+                        enum: ['email', 'call', 'whatsapp'],
+                    },
                 },
                 example: {
                     email: 'hello@example.com',
                     phone: '+44 7700 900000',
+                    availability: {
+                        email: 'Anytime — replies within a day',
+                        call: 'Evenings and weekends only',
+                        whatsapp: 'As per availability',
+                    },
+                    preferred: 'whatsapp',
                 },
             },
             ContactInput: {
                 type: 'object',
                 description:
-                    'Contact update. Both fields optional; a blank or omitted field removes that method.',
+                    'Contact update. All fields optional; a blank or omitted field removes that method, its notes and any preference for it. An empty-string preferred clears the preference.',
                 properties: {
                     email: { type: 'string', maxLength: 254 },
                     phone: { type: 'string', maxLength: 40 },
+                    availability: {
+                        $ref: '#/components/schemas/ContactAvailability',
+                    },
+                    preferred: {
+                        type: 'string',
+                        enum: ['email', 'call', 'whatsapp', ''],
+                    },
                 },
             },
         },
