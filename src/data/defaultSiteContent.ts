@@ -10,32 +10,33 @@ export const defaultSiteContent: SiteContent = {
     siteName: 'Springboard Tutoring',
     hero: {
         headline: 'Confident tutoring for Years 7 to 13.',
-        subhead: 'One-to-one lessons in maths and the sciences — in person or online — matched to your child’s exam board and built around their school week.',
-        availability:
-            'Now taking a few more Year 10 & 11 students for the autumn term.',
+        subhead: 'One-to-one lessons in maths and the sciences, from KS3 through GCSE to A-level — in person or online, matched to your child’s exam board and built around their school week.',
+        // Blank by default — the page hides the line until the teacher
+        // publishes one via the site editor.
+        availability: '',
     },
     subjects: [
         {
             name: 'Mathematics',
-            keyStages: ['KS3', 'GCSE'],
+            keyStages: ['KS3', 'GCSE', 'A-level'],
             examBoards: ['AQA', 'Edexcel', 'OCR'],
             modes: ['Online', 'In person'],
         },
         {
             name: 'Physics',
-            keyStages: ['KS3', 'GCSE'],
+            keyStages: ['KS3', 'GCSE', 'A-level'],
             examBoards: ['AQA', 'OCR'],
             modes: ['Online', 'In person'],
         },
         {
             name: 'Chemistry',
-            keyStages: ['KS3', 'GCSE'],
+            keyStages: ['KS3', 'GCSE', 'A-level'],
             examBoards: ['AQA', 'Edexcel'],
             modes: ['Online', 'In person'],
         },
         {
             name: 'Biology',
-            keyStages: ['KS3', 'GCSE'],
+            keyStages: ['KS3', 'GCSE', 'A-level'],
             examBoards: ['AQA', 'OCR'],
             modes: ['Online', 'In person'],
         },
