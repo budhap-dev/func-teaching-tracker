@@ -80,6 +80,72 @@ describe('updateSiteContent', () => {
         expect(published.freeform.markdown).not.toContain('<script>')
     })
 
+    it('fills an older published document with EMPTY bio/faq, never the drafts', async () => {
+        // A document from before REQ-021/025: no bio, no faq, 5-key order.
+        const {
+            bio: _bio,
+            faq: _faq,
+            ...older
+        } = input({
+            sectionOrder: undefined as never,
+        })
+        fake.content = {
+            ...older,
+            sectionOrder: [
+                'hero',
+                'subjects',
+                'journey',
+                'approach',
+                'freeform',
+            ],
+        } as never
+
+        const served = await getSiteContent()
+        // Empty — the owner never approved the bundled draft FAQ.
+        expect(served.faq).toEqual([])
+        expect(served.bio.dbsChecked).toBe(false)
+        expect(served.bio.heading).toBe('')
+        // The new keys join the end, every key exactly once.
+        expect(served.sectionOrder).toEqual([
+            'hero',
+            'subjects',
+            'journey',
+            'approach',
+            'freeform',
+            'bio',
+            'faq',
+        ])
+    })
+
+    it('sanitises bio and faq on write: HTML out, blanks dropped, DBS is strictly boolean', async () => {
+        const published = await updateSiteContent(
+            input({
+                bio: {
+                    heading: 'Meet <b>your tutor</b>',
+                    body: 'Twenty years of **maths**.<script>alert(1)</script>',
+                    qualifications: ['PGCE <i>Maths</i>', '   ', 'BSc Physics'],
+                    dbsChecked: 'yes' as never,
+                    safeguarding: 'DBS on the <u>update service</u>.',
+                },
+                faq: [
+                    { question: 'Online?', answer: 'Yes<script>x</script>.' },
+                    { question: '  ', answer: 'orphaned answer' },
+                ],
+            })
+        )
+
+        expect(published.bio.heading).toBe('Meet your tutor')
+        expect(published.bio.body).toBe('Twenty years of **maths**.')
+        expect(published.bio.qualifications).toEqual([
+            'PGCE Maths',
+            'BSc Physics',
+        ])
+        // A truthy non-boolean never switches the indicator on.
+        expect(published.bio.dbsChecked).toBe(false)
+        expect(published.bio.safeguarding).toBe('DBS on the update service.')
+        expect(published.faq).toEqual([{ question: 'Online?', answer: 'Yes.' }])
+    })
+
     it('keeps a sane experience-years figure and drops a nonsense one', async () => {
         const base = input({}).hero
         const kept = await updateSiteContent(

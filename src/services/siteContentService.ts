@@ -17,6 +17,9 @@ const MAX_TAGS = 8
 const MAX_TAG = 30
 const MAX_DETAIL = 400
 const MAX_MARKDOWN = 5000
+const MAX_FAQ = 20
+const MAX_ANSWER = 600
+const MAX_QUALIFICATIONS = 12
 
 /**
  * Strips raw HTML from a value on write (REQ-008's API-side control): the
@@ -33,8 +36,33 @@ const stripHtml = (text: string): string =>
 const clean = (text: string): string => stripHtml(text).trim()
 
 /** The published content, or the bundled defaults when none exists yet. */
-export const getSiteContent = async (): Promise<SiteContent> =>
-    (await dataStore.getSiteContent()) ?? defaultSiteContent
+export const getSiteContent = async (): Promise<SiteContent> => {
+    const stored = await dataStore.getSiteContent()
+    if (!stored) {
+        return defaultSiteContent
+    }
+    // A document published before bio/faq existed (REQ-021/025) is filled
+    // with EMPTY sections — never the bundled drafts, which would put words
+    // on the live site the owner hasn't approved — and the new keys join
+    // the end of its section order.
+    return {
+        ...stored,
+        bio: stored.bio ?? {
+            heading: '',
+            body: '',
+            qualifications: [],
+            dbsChecked: false,
+            safeguarding: '',
+        },
+        faq: stored.faq ?? [],
+        sectionOrder: [
+            ...stored.sectionOrder,
+            ...sectionKeys.filter(
+                (key) => !stored.sectionOrder.includes(key)
+            ),
+        ],
+    }
+}
 
 /**
  * Publishes the whole document atomically — live for the next public GET,
@@ -81,6 +109,22 @@ export const updateSiteContent = async (
             title: clean(point.title),
             detail: clean(point.detail),
         })),
+        bio: {
+            heading: clean(input.bio.heading),
+            // Markdown keeps its markup; only raw HTML is removed.
+            body: stripHtml(input.bio.body).trim(),
+            qualifications: input.bio.qualifications
+                .map(clean)
+                .filter((line) => line.length > 0),
+            dbsChecked: input.bio.dbsChecked === true,
+            safeguarding: clean(input.bio.safeguarding),
+        },
+        faq: input.faq
+            .map((item) => ({
+                question: clean(item.question),
+                answer: clean(item.answer),
+            }))
+            .filter((item) => item.question.length > 0),
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -218,6 +262,64 @@ export const validateSiteContentInput = (
             if (error) {
                 return error
             }
+        }
+    }
+
+    const bio = input.bio as SiteContent['bio'] | undefined
+    if (!bio || typeof bio !== 'object') {
+        return 'bio is required.'
+    }
+    if (!isString(bio.heading) || bio.heading.trim().length > MAX_LINE) {
+        return `bio.heading must be a string of ${MAX_LINE} characters or fewer.`
+    }
+    if (!isString(bio.body) || bio.body.length > MAX_MARKDOWN) {
+        return `bio.body must be a string of ${MAX_MARKDOWN} characters or fewer.`
+    }
+    if (
+        !Array.isArray(bio.qualifications) ||
+        !bio.qualifications.every(isString)
+    ) {
+        return 'bio.qualifications must be a list of lines.'
+    }
+    if (bio.qualifications.length > MAX_QUALIFICATIONS) {
+        return `bio.qualifications must list ${MAX_QUALIFICATIONS} or fewer.`
+    }
+    if (bio.qualifications.some((line) => line.trim().length > MAX_LINE)) {
+        return `bio.qualifications entries must be ${MAX_LINE} characters or fewer.`
+    }
+    if (typeof bio.dbsChecked !== 'boolean') {
+        return 'bio.dbsChecked must be true or false.'
+    }
+    if (
+        !isString(bio.safeguarding) ||
+        bio.safeguarding.trim().length > MAX_SUBHEAD
+    ) {
+        return `bio.safeguarding must be a string of ${MAX_SUBHEAD} characters or fewer.`
+    }
+
+    const faq = input.faq as SiteContent['faq'] | undefined
+    if (!Array.isArray(faq)) {
+        return 'faq must be a list (it may be empty).'
+    }
+    if (faq.length > MAX_FAQ) {
+        return `faq must list ${MAX_FAQ} or fewer.`
+    }
+    for (const [index, item] of faq.entries()) {
+        const at = `faq[${index}]`
+        if (!item || typeof item !== 'object') {
+            return `${at} must be an object.`
+        }
+        if (!isNonEmptyString(item.question)) {
+            return `${at}.question is required.`
+        }
+        if (item.question.trim().length > MAX_LINE) {
+            return `${at}.question must be ${MAX_LINE} characters or fewer.`
+        }
+        if (!isNonEmptyString(item.answer)) {
+            return `${at}.answer is required.`
+        }
+        if (item.answer.trim().length > MAX_ANSWER) {
+            return `${at}.answer must be ${MAX_ANSWER} characters or fewer.`
         }
     }
 

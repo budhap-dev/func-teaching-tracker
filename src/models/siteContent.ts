@@ -54,12 +54,38 @@ export interface FreeformSection {
     markdown: string
 }
 
+/**
+ * The tutor bio + safeguarding (REQ-021). Every field may be empty and the
+ * public section hides until something is written — the app never invents
+ * a qualification or a DBS claim on the owner's behalf.
+ */
+export interface BioSection {
+    /** e.g. "Meet your tutor". */
+    heading: string
+    /** Who the tutor is — Markdown, like the free-form section. */
+    body: string
+    /** Qualification bullet lines, e.g. "PGCE, Secondary Mathematics". */
+    qualifications: string[]
+    /** Shows the DBS-checked indicator — only ever set by the owner. */
+    dbsChecked: boolean
+    /** A short safeguarding statement. */
+    safeguarding: string
+}
+
+/** One FAQ entry (REQ-025). Plain text; HTML is stripped on write. */
+export interface FaqItem {
+    question: string
+    answer: string
+}
+
 /** The reorderable page sections, in their canonical order. */
 export const sectionKeys = [
     'hero',
     'subjects',
     'journey',
     'approach',
+    'bio',
+    'faq',
     'freeform',
 ] as const
 
@@ -72,6 +98,8 @@ export interface SiteContent {
     subjects: SubjectOffering[]
     journey: JourneyStep[]
     approach: ApproachPoint[]
+    bio: BioSection
+    faq: FaqItem[]
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

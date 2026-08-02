@@ -501,6 +501,51 @@ export const openApiDocument = {
                         maxItems: 12,
                         items: { $ref: '#/components/schemas/TitledDetail' },
                     },
+                    bio: {
+                        type: 'object',
+                        description:
+                            'Tutor bio + safeguarding (REQ-021). Every field may be empty; the public section hides until written.',
+                        properties: {
+                            heading: { type: 'string', maxLength: 200 },
+                            body: {
+                                type: 'string',
+                                maxLength: 5000,
+                                description:
+                                    'Markdown only; raw HTML is stripped on write.',
+                            },
+                            qualifications: {
+                                type: 'array',
+                                maxItems: 12,
+                                items: { type: 'string', maxLength: 200 },
+                            },
+                            dbsChecked: { type: 'boolean' },
+                            safeguarding: {
+                                type: 'string',
+                                maxLength: 400,
+                            },
+                        },
+                        required: [
+                            'heading',
+                            'body',
+                            'qualifications',
+                            'dbsChecked',
+                            'safeguarding',
+                        ],
+                    },
+                    faq: {
+                        type: 'array',
+                        maxItems: 20,
+                        description:
+                            'FAQ entries (REQ-025); may be empty. Plain text.',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                question: { type: 'string', maxLength: 200 },
+                                answer: { type: 'string', maxLength: 600 },
+                            },
+                            required: ['question', 'answer'],
+                        },
+                    },
                     freeform: {
                         type: 'object',
                         properties: {
@@ -523,11 +568,13 @@ export const openApiDocument = {
                                 'subjects',
                                 'journey',
                                 'approach',
+                                'bio',
+                                'faq',
                                 'freeform',
                             ],
                         },
-                        minItems: 5,
-                        maxItems: 5,
+                        minItems: 7,
+                        maxItems: 7,
                         description: 'Each key exactly once.',
                     },
                 },
@@ -537,6 +584,8 @@ export const openApiDocument = {
                     'subjects',
                     'journey',
                     'approach',
+                    'bio',
+                    'faq',
                     'freeform',
                     'sectionOrder',
                 ],
