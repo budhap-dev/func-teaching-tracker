@@ -78,7 +78,49 @@ export const defaultSiteContent: SiteContent = {
             detail: 'You get a clear picture of where your child stands, without having to ask for it.',
         },
     ],
+    // Empty until the teacher writes it — an empty bio renders nothing, and
+    // the DBS indicator is only ever switched on by the owner (REQ-021).
+    bio: {
+        heading: '',
+        body: '',
+        qualifications: [],
+        dbsChecked: false,
+        safeguarding: '',
+    },
+    // A starter set the owner reviews and edits before publishing (REQ-025).
+    // Every answer sticks to what the site already claims — no invented
+    // policies, prices or promises.
+    faq: [
+        {
+            question: 'What subjects and levels do you cover?',
+            answer: 'Maths and the sciences, from KS3 through GCSE to A-level. Lessons follow your child’s own exam board and specification, not a generic syllabus.',
+        },
+        {
+            question: 'Are lessons online or in person?',
+            answer: 'Both — choose whichever suits your family, or mix the two. Online lessons are live and interactive, never pre-recorded.',
+        },
+        {
+            question: 'Are lessons one-to-one or in groups?',
+            answer: 'Most lessons are one-to-one. Small group sessions also run where a few students at the same level learn well together.',
+        },
+        {
+            question: 'How do we get started?',
+            answer: 'Request a free assessment. We talk through where your child is now and what success looks like, then agree a plan — no commitment until you’re happy.',
+        },
+        {
+            question: 'How will we know it’s working?',
+            answer: 'Every lesson ends with a written note of what was covered and what to practise, and progress is reviewed against the goals we agree at the start — you stay in the loop without having to ask.',
+        },
+    ],
     // Empty until the teacher writes one — an empty section renders nothing.
     freeform: { heading: '', markdown: '' },
-    sectionOrder: ['hero', 'subjects', 'journey', 'approach', 'freeform'],
+    sectionOrder: [
+        'hero',
+        'subjects',
+        'journey',
+        'approach',
+        'bio',
+        'faq',
+        'freeform',
+    ],
 }
