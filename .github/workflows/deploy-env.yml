@@ -41,3 +41,16 @@ jobs:
           package: '.'
           respect-funcignore: true
           remote-build: false
+
+      # The run's Summary answers "what went where" without opening logs.
+      - name: Record what this environment now runs
+        run: |
+          {
+            echo "## ✅ ${{ inputs.environment }} now runs \`${{ github.sha }}\`"
+            echo ""
+            echo "| Commit | Deployed (UTC) |"
+            echo "|---|---|"
+            echo "| \`${{ github.sha }}\` | $(date -u +'%F %T') |"
+            echo ""
+            echo "Both environments at a glance: Actions → **Environment status**."
+          } >> "$GITHUB_STEP_SUMMARY"
