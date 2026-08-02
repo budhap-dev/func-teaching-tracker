@@ -1445,38 +1445,6 @@ export const openApiDocument = {
                 },
             },
         },
-        '/outcomes': {
-            get: {
-                tags: ['Site content'],
-                summary: 'Read the public outcomes tallies (public)',
-                description:
-                    'Aggregate teaching outcomes for the public outcomes strip (REQ-020): students taught, sessions delivered (a group class counts once), hours delivered, distinct subjects, and the approved-review star rating. Computed from live data on every read; nothing personal is exposed.',
-                responses: {
-                    '200': {
-                        description: 'The whole-app tallies.',
-                        content: {
-                            'application/json': {
-                                schema: {
-                                    type: 'object',
-                                    properties: {
-                                        studentsTaught: { type: 'integer' },
-                                        sessionsDelivered: { type: 'integer' },
-                                        hoursDelivered: { type: 'integer' },
-                                        subjectsCount: { type: 'integer' },
-                                        averageRating: {
-                                            type: 'number',
-                                            description:
-                                                'Mean star rating (1–5, one decimal) across approved reviews; 0 when there are none.',
-                                        },
-                                        reviewCount: { type: 'integer' },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
         '/leads': {
             post: {
                 tags: ['Leads'],
