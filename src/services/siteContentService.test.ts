@@ -80,6 +80,28 @@ describe('updateSiteContent', () => {
         expect(published.freeform.markdown).not.toContain('<script>')
     })
 
+    it('keeps a sane experience-years figure and drops a nonsense one', async () => {
+        const base = input({}).hero
+        const kept = await updateSiteContent(
+            input({ hero: { ...base, experienceYears: 20.9 } })
+        )
+        expect(kept.hero.experienceYears).toBe(20)
+
+        const capped = await updateSiteContent(
+            input({ hero: { ...base, experienceYears: 500 } })
+        )
+        expect(capped.hero.experienceYears).toBe(99)
+
+        const negative = await updateSiteContent(
+            input({ hero: { ...base, experienceYears: -3 } })
+        )
+        expect(negative.hero.experienceYears).toBeUndefined()
+
+        const { experienceYears: _unused, ...bare } = base
+        const absent = await updateSiteContent(input({ hero: bare }))
+        expect(absent.hero.experienceYears).toBeUndefined()
+    })
+
     it('trims and preserves the chosen section order', async () => {
         const published = await updateSiteContent(
             input({

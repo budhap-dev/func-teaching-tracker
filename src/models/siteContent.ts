@@ -42,6 +42,9 @@ export interface SiteHero {
     subhead: string
     /** A scarcity/availability line, e.g. "Now taking Year 10 & 11". */
     availability: string
+    /** Years of tutoring experience — the Home strip's lead tile ("20+
+        years of tutoring experience"). 0/absent hides it. */
+    experienceYears?: number
 }
 
 /** The free-form section: a heading plus a Markdown body. */

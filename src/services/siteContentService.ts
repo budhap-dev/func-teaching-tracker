@@ -50,6 +50,16 @@ export const updateSiteContent = async (
             headline: clean(input.hero.headline),
             subhead: clean(input.hero.subhead),
             availability: clean(input.hero.availability),
+            // A whole number of years, 1–99; anything else means "no tile".
+            ...(Number.isFinite(input.hero.experienceYears) &&
+            Math.floor(input.hero.experienceYears!) > 0
+                ? {
+                      experienceYears: Math.min(
+                          Math.floor(input.hero.experienceYears!),
+                          99
+                      ),
+                  }
+                : {}),
         },
         subjects: input.subjects.map((subject) => ({
             name: clean(subject.name),

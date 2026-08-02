@@ -14,6 +14,7 @@ export const defaultSiteContent: SiteContent = {
         // Blank by default — the page hides the line until the teacher
         // publishes one via the site editor.
         availability: '',
+        experienceYears: 20,
     },
     subjects: [
         {
