@@ -1,0 +1,83 @@
+name: Environment status
+# One glance: which commit each environment runs. Refreshes itself after
+# every Deploy run, and can be run by hand any time (Actions → Environment
+# status → Run workflow) — the answer is in the run's Summary.
+run-name: "Environment status — @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Deploy]
+    types: [completed]
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: What is deployed where
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        # GitHub records a deployment for every job that targets an
+        # environment; this walks the latest few per environment to the most
+        # recent SUCCESS and names its commit, PR and time.
+        run: |
+          set +e
+
+          latest_success() {
+            local env_name="$1"
+            local id state
+            for id in $(gh api "repos/$REPO/deployments?environment=$env_name&per_page=10" --jq '.[].id' 2>/dev/null); do
+              state=$(gh api "repos/$REPO/deployments/$id/statuses" --jq '.[0].state' 2>/dev/null)
+              if [ "$state" = "success" ]; then
+                gh api "repos/$REPO/deployments/$id" --jq '[.sha, .created_at] | @tsv' 2>/dev/null
+                return
+              fi
+            done
+          }
+
+          row() {
+            local env_name="$1"
+            local info sha at subject pr
+            info=$(latest_success "$env_name")
+            if [ -z "$info" ]; then
+              echo "| **$env_name** | — | _no successful deployment found_ | | |"
+              return
+            fi
+            sha=$(echo "$info" | cut -f1)
+            at=$(echo "$info" | cut -f2)
+            subject=$(gh api "repos/$REPO/commits/$sha" --jq '.commit.message' 2>/dev/null | head -1)
+            pr=$(gh api "repos/$REPO/commits/$sha/pulls" --jq 'map("#\(.number)") | first // ""' 2>/dev/null)
+            echo "$sha" > "/tmp/sha-$env_name"
+            echo "| **$env_name** | \`${sha:0:7}\` | ${subject:-(message unavailable)} | ${pr} | ${at} |"
+          }
+
+          {
+            echo "## 🌍 What is deployed where"
+            echo ""
+            echo "| Environment | Commit | Message | PR | Deployed (UTC) |"
+            echo "|---|---|---|---|---|"
+            row dev
+            row prod
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f /tmp/sha-dev ] && [ -f /tmp/sha-prod ]; then
+            dev_sha=$(cat /tmp/sha-dev)
+            prod_sha=$(cat /tmp/sha-prod)
+            if [ "$dev_sha" = "$prod_sha" ]; then
+              echo "✅ **prod and dev run the same commit.**" >> "$GITHUB_STEP_SUMMARY"
+            else
+              behind=$(gh api "repos/$REPO/compare/$prod_sha...$dev_sha" --jq '.ahead_by' 2>/dev/null)
+              echo "⏳ **prod is ${behind:-an unknown number of} commit(s) behind dev.** Promote via Actions → Deploy → Run workflow." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          # Never fail the status over a flaky API read — an empty row already
+          # says what happened.
+          exit 0
