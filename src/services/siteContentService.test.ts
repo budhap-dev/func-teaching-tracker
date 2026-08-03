@@ -57,7 +57,7 @@ describe('updateSiteContent', () => {
     it('strips raw HTML from every field on write, keeping Markdown', async () => {
         const published = await updateSiteContent(
             input({
-                siteName: 'Spring<script>alert(1)</script>board',
+                siteName: 'Abhi<script>alert(1)</script>Tutor',
                 hero: {
                     headline: 'Confident <b>tutoring</b>.',
                     subhead: 'Lessons <img src=x onerror=alert(1)> weekly.',
@@ -71,7 +71,7 @@ describe('updateSiteContent', () => {
             })
         )
 
-        expect(published.siteName).toBe('Springboard')
+        expect(published.siteName).toBe('AbhiTutor')
         expect(published.hero.headline).toBe('Confident tutoring.')
         expect(published.hero.subhead).toBe('Lessons  weekly.')
         // Markdown markup survives; tags don't.
