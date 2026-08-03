@@ -92,7 +92,7 @@ export const sectionKeys = [
 export type SectionKey = (typeof sectionKeys)[number]
 
 export interface SiteContent {
-    /** The public-facing site name, e.g. "Springboard Tutoring". */
+    /** The public-facing site name, e.g. "AbhiTutor". */
     siteName: string
     hero: SiteHero
     subjects: SubjectOffering[]
