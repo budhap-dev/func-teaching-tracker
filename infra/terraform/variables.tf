@@ -55,11 +55,18 @@ variable "environments" {
       location               = "uksouth"
       node_version           = "24"
       maximum_instance_count = 100
-      cors_allowed_origins   = ["https://nice-sea-095463c0f.7.azurestaticapps.net"]
+      # REQ-035: the custom domain (and its www) join the paired SWA origin.
+      # This list also feeds the Entra SPA redirect URIs (see main.tf), so
+      # one apply covers both CORS and sign-in on the new domain.
+      cors_allowed_origins = [
+        "https://nice-sea-095463c0f.7.azurestaticapps.net",
+        "https://abhitutor.co.uk",
+        "https://www.abhitutor.co.uk",
+      ]
       # Enforced: the UK stack is deployed and Microsoft sign-in is verified
       # end-to-end, so the API now rejects unauthenticated calls (Art. 32).
-      auth_enforced          = true
-      data_store             = "tables"
+      auth_enforced = true
+      data_store    = "tables"
     }
   }
 }
