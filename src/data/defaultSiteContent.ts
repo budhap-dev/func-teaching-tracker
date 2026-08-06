@@ -10,7 +10,7 @@ export const defaultSiteContent: SiteContent = {
     siteName: 'AbhiTutor',
     hero: {
         headline: 'Confident tutoring for Years 7 to 13.',
-        subhead: 'One-to-one lessons in maths and the sciences, from KS3 through GCSE to A-level — in person or online, matched to your child’s exam board and built around their school week.',
+        subhead: 'One-to-one or small-group lessons in maths and the sciences, from KS3 through GCSE to A-level — in person or online, matched to your child’s exam board and built around their school week.',
         // Blank by default — the page hides the line until the teacher
         // publishes one via the site editor.
         availability: '',
