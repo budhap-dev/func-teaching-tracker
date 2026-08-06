@@ -126,6 +126,24 @@ describe('updateSiteContent', () => {
                     qualifications: ['PGCE <i>Maths</i>', '   ', 'BSc Physics'],
                     dbsChecked: 'yes' as never,
                     safeguarding: 'DBS on the <u>update service</u>.',
+                    experience: [
+                        {
+                            years: '2019',
+                            title: 'Tutor <b>UK</b>',
+                            place: '',
+                            detail: '',
+                        },
+                        { years: '', title: '  ', place: 'x', detail: 'x' },
+                    ],
+                    education: [],
+                    expectations: ['Patient <i>teaching</i>', '  '],
+                    sections: [
+                        { heading: '', markdown: '' },
+                        {
+                            heading: 'Promise',
+                            markdown: 'Better than <b>yesterday</b>.',
+                        },
+                    ],
                 },
                 faq: [
                     { question: 'Online?', answer: 'Yes<script>x</script>.' },
@@ -143,6 +161,14 @@ describe('updateSiteContent', () => {
         // A truthy non-boolean never switches the indicator on.
         expect(published.bio.dbsChecked).toBe(false)
         expect(published.bio.safeguarding).toBe('DBS on the update service.')
+        // REQ-037 lists: cleaned, titleless/blank rows dropped.
+        expect(published.bio.experience).toEqual([
+            { years: '2019', title: 'Tutor UK', place: '', detail: '' },
+        ])
+        expect(published.bio.expectations).toEqual(['Patient teaching'])
+        expect(published.bio.sections).toEqual([
+            { heading: 'Promise', markdown: 'Better than yesterday.' },
+        ])
         expect(published.faq).toEqual([{ question: 'Online?', answer: 'Yes.' }])
     })
 
