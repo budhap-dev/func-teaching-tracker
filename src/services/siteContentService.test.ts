@@ -146,6 +146,45 @@ describe('updateSiteContent', () => {
         expect(published.faq).toEqual([{ question: 'Online?', answer: 'Yes.' }])
     })
 
+    it('sanitises pricing: floors rates, drops half-rows and titleless factors', async () => {
+        const base = input({}).pricing
+        const published = await updateSiteContent(
+            input({
+                pricing: {
+                    ...base,
+                    rates: [
+                        { label: 'GCSE<b>!</b>', fromPerHour: 20.9 },
+                        { label: '  ', fromPerHour: 25 },
+                        { label: 'A-level', fromPerHour: -5 },
+                        { label: 'Degree', fromPerHour: 5000 },
+                    ],
+                    factors: [
+                        { title: '  ', detail: 'orphan detail' },
+                        { title: 'Group<b>!</b>', detail: 'Shared.' },
+                    ],
+                    note: 'Agreed at the <i>assessment</i>.',
+                },
+            })
+        )
+        expect(published.pricing.rates).toEqual([
+            { label: 'GCSE!', fromPerHour: 20 },
+            { label: 'Degree', fromPerHour: 999 },
+        ])
+        expect(published.pricing.factors).toEqual([
+            { title: 'Group!', detail: 'Shared.' },
+        ])
+        expect(published.pricing.note).toBe('Agreed at the assessment.')
+    })
+
+    it('fills an older published document with EMPTY pricing — never the default rates', async () => {
+        const { pricing: _pricing, ...older } = input({})
+        fake.content = older as never
+
+        const served = await getSiteContent()
+        expect(served.pricing.rates).toEqual([])
+        expect(served.pricing.factors).toEqual([])
+    })
+
     it('keeps a sane experience-years figure and drops a nonsense one', async () => {
         const base = input({}).hero
         const kept = await updateSiteContent(
