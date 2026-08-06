@@ -70,6 +70,10 @@ export interface BioSection {
     dbsChecked: boolean
     /** A short safeguarding statement. */
     safeguarding: string
+    /** Profile photo as a small data-URI (browser-downscaled JPEG,
+        ~240px). Empty = no photo. Kept small: the whole document lives in
+        one 64KB Table Storage property. */
+    photo: string
     /** CV timelines (REQ-037): teaching first, then education. */
     experience: CvEntry[]
     education: CvEntry[]
@@ -151,6 +155,9 @@ export interface SiteContent {
     bio: BioSection
     faq: FaqItem[]
     pricing: PricingSection
+    /** Hero highlight tiles (REQ-038) — short owner-approved selling
+        points shown under the Home band. */
+    highlights: string[]
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

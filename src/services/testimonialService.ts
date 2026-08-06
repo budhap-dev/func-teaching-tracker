@@ -1,5 +1,6 @@
 import { dataStore } from '../data/store'
 import {
+    recommendationRoles,
     moderatedStatuses,
     Testimonial,
     TestimonialInput,
@@ -59,7 +60,10 @@ export const createTestimonial = async (
         role: input.role,
         ...(input.subject?.trim() ? { subject: input.subject.trim() } : {}),
         ...(input.year?.trim() ? { year: input.year.trim() } : {}),
-        rating: input.rating,
+        // Recommendations store no rating at all.
+        ...(recommendationRoles.includes(input.role)
+            ? {}
+            : { rating: input.rating }),
         quote,
         status: 'Pending',
         ...(flagged ? { flagged: true } : {}),
@@ -112,7 +116,13 @@ export const validateTestimonialInput = (
     if (input.role === undefined || !testimonialRoles.includes(input.role)) {
         return `role must be one of: ${testimonialRoles.join(', ')}.`
     }
-    if (
+    // Recommendations (Professional/Personal) carry no star rating — the
+    // rating rules below apply to family reviews only.
+    if (recommendationRoles.includes(input.role)) {
+        if (input.rating !== undefined && input.rating !== 0) {
+            return 'A recommendation does not take a star rating.'
+        }
+    } else if (
         typeof input.rating !== 'number' ||
         !Number.isInteger(input.rating) ||
         input.rating < 1 ||
