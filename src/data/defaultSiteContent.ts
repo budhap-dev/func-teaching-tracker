@@ -85,9 +85,11 @@ export const defaultSiteContent: SiteContent = {
     // until the owner loads + publishes this from the About page.
     bio: {
         heading: 'About me',
-        body: 'Hello, and welcome!\n\nMy name is **Mrs Abhinanda Pandit**, and I currently work in a secondary school in Leeds as a **Maths Mentor**. Before that I was an **Assistant SENDCo**, supporting students with additional learning needs and helping them overcome barriers to success.\n\nTeaching has always been more than a profession for me — it is my passion. My love of working with young people and helping them reach their full potential inspired me to offer private tutoring, both online and in person from my home in the Middleton area of Leeds.\n\nMy journey as a tutor began in my own student years, helping fellow students and junior batches with Physics honours and much else besides. That early experience lit a lifelong passion for teaching and mentoring.',
+        // No photo in the prepared copy — the owner uploads their own.
+        photo: '',
+        body: 'Hello, and welcome! 👋\n\nMy name is **Mrs Abhinanda Pandit**, and I currently work in a secondary school in Leeds as a **Maths Mentor**. Before that I was an **Assistant SENDCo**, supporting students with additional learning needs and helping them overcome barriers to success.\n\nTeaching has always been more than a profession for me — it is my passion. ❤️ My love of working with young people and helping them reach their full potential inspired me to offer private tutoring, both online and in person from my home in the Middleton area of Leeds.\n\nMy journey as a tutor began in my own student years, helping fellow students and junior batches with Physics honours and much else besides. That early experience lit a lifelong passion for teaching and mentoring. ✨',
         qualifications: [
-            'BSc (Hons) Physics, First Class — University of Calcutta',
+            'BSc (Hons) Physics, First Class',
             'B.Tech Computer Science — University Topper',
             '20+ years teaching and tutoring',
         ],
@@ -113,20 +115,9 @@ export const defaultSiteContent: SiteContent = {
                 detail: 'Left a software career at a multinational because the pull of the classroom was stronger.',
             },
         ],
-        education: [
-            {
-                years: '2008',
-                title: 'B.Tech, Computer Science',
-                place: 'Graduated University Topper',
-                detail: '',
-            },
-            {
-                years: '2005',
-                title: 'BSc (Hons) Physics, First Class',
-                place: 'University of Calcutta',
-                detail: '',
-            },
-        ],
+        // Education lives on the qualification cards (owner call) —
+        // an empty list hides the timeline block.
+        education: [],
         expectations: [
             'Personalised one-to-one tuition',
             'Patient and supportive teaching',
@@ -139,11 +130,11 @@ export const defaultSiteContent: SiteContent = {
         sections: [
             {
                 heading: 'My teaching philosophy',
-                markdown: '**Every student has the potential to succeed with the right guidance, encouragement and support.**\n\nMy approach focuses not only on academic performance but on confidence, resilience, and a positive attitude to learning. Every student learns differently — so each lesson is tailored to individual needs, learning styles and goals, in a safe, supportive environment where it is always okay to ask questions and make mistakes.',
+                markdown: '✨ ***Every student has the potential to succeed with the right guidance, encouragement and support.***\n\n- 🎯 Every lesson is tailored to individual needs, learning styles and goals.\n- 🤗 A safe, supportive space where it is always okay to ask questions and make mistakes.\n- 🌱 Confidence, resilience and a positive attitude to learning — not just marks.',
             },
             {
                 heading: 'My promise',
-                markdown: '- Learning is not about being the best — it is about becoming better than you were yesterday.\n- Confidence is the foundation of success, and every lesson is designed to build it.\n- Together, we can turn challenges into achievements and goals into results.\n- More than improving grades, my goal is to help students believe in themselves.\n\nI look forward to supporting your child on their educational journey.',
+                markdown: '- 🌱 Learning is not about being the best — it is about becoming better than you were yesterday.\n- 💪 Confidence is the foundation of success, and every lesson is designed to build it.\n- 🤝 Together, we can turn challenges into achievements and goals into results.\n- ⭐ More than improving grades, my goal is to help students believe in themselves.\n\nI look forward to supporting your child on their educational journey. 😊',
             },
         ],
     },
@@ -192,6 +183,18 @@ export const defaultSiteContent: SiteContent = {
         ],
         note: 'Your exact rate is agreed at the free assessment — no obligation, no surprises.',
     },
+    // Hero highlights (REQ-038): the owner's list (2026-08-05), deduped —
+    // progress updates + parent communication merged; UK spelling.
+    highlights: [
+        'Flexible scheduling',
+        'Clear communication with parents',
+        'Regular progress reports',
+        'Online convenience',
+        'Personalised learning',
+        'Confidence-building approach',
+        'Exam and assessment preparation',
+        'Proven results',
+    ],
     // Empty until the teacher writes one — an empty section renders nothing.
     freeform: { heading: '', markdown: '' },
     sectionOrder: [

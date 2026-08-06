@@ -110,6 +110,21 @@ describe('createTestimonial', () => {
         expect(fake.testimonials).toHaveLength(1)
     })
 
+    it('stores a Professional recommendation without any rating (2026-08-05)', async () => {
+        const created = await createTestimonial(
+            input({
+                role: 'Professional',
+                rating: undefined,
+            }) as Parameters<typeof createTestimonial>[0]
+        )
+
+        expect(created).toMatchObject({
+            role: 'Professional',
+            status: 'Pending',
+        })
+        expect(created).not.toHaveProperty('rating')
+    })
+
     it('silently drops a submission with the honeypot filled', async () => {
         const created = await createTestimonial(
             input({ website: 'http://bot.example' }) as Parameters<
@@ -173,6 +188,10 @@ describe('validateTestimonialInput', () => {
         [input({ authorName: '  ' }), 'authorName is required'],
         [input({ authorName: 'x'.repeat(81) }), 'characters or fewer'],
         [input({ role: 'Teacher' }), 'role must be one of'],
+        [
+            input({ role: 'Personal', rating: 5 }),
+            'does not take a star rating',
+        ],
         [input({ rating: 0 }), 'rating'],
         [input({ rating: 5.5 }), 'rating'],
         [input({ quote: ' ' }), 'quote is required'],

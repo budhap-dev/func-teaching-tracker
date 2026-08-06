@@ -15,10 +15,27 @@ export const testimonialStatuses: TestimonialStatus[] = [
     'Rejected',
 ]
 
-/** Who left the review. */
-export type TestimonialRole = 'Parent' | 'Student'
+/** Who left the review. Parent/Student are star-rated family reviews;
+    Professional/Personal are RECOMMENDATIONS — endorsements without a star
+    rating, shown in their own section (owner ask, 2026-08-05). */
+export type TestimonialRole =
+    | 'Parent'
+    | 'Student'
+    | 'Professional'
+    | 'Personal'
 
-export const testimonialRoles: TestimonialRole[] = ['Parent', 'Student']
+export const testimonialRoles: TestimonialRole[] = [
+    'Parent',
+    'Student',
+    'Professional',
+    'Personal',
+]
+
+/** Recommendation roles carry no star rating. */
+export const recommendationRoles: TestimonialRole[] = [
+    'Professional',
+    'Personal',
+]
 
 /** Statuses a moderation request may set — never back to Pending. */
 export const moderatedStatuses: TestimonialStatus[] = ['Approved', 'Rejected']
@@ -32,8 +49,8 @@ export interface Testimonial {
     subject?: string
     /** Optional school year, e.g. "10". */
     year?: string
-    /** Star rating, 1–5. */
-    rating: number
+    /** Star rating, 1–5 — family reviews only; recommendations have none. */
+    rating?: number
     /** The written experience — plain text only (any HTML is stripped). */
     quote: string
     status: TestimonialStatus

@@ -35,6 +35,11 @@ const stripHtml = (text: string): string =>
 
 const clean = (text: string): string => stripHtml(text).trim()
 
+/** A browser-downscaled portrait: jpeg/png/webp data-URI, ≤16k chars so
+    the single-property document stays far below Table Storage's 64KB. */
+const PHOTO_PATTERN =
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]{1,16000}$/
+
 /** A bio with no heading, body or experience has nothing to say — serve
     the owner's prepared About copy instead. */
 const withPreparedBioFallback = (
@@ -47,6 +52,7 @@ const withPreparedBioFallback = (
 /** The all-empty bio: what older documents' gaps are filled with. */
 const EMPTY_BIO = {
     heading: '',
+    photo: '',
     body: '',
     qualifications: [],
     dbsChecked: false,
@@ -82,6 +88,8 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         faq: stored.faq ?? [],
         // Empty pricing: the from-price never appears unpublished.
         pricing: stored.pricing ?? { rates: [], factors: [], note: '' },
+        // Owner-approved by provision (2026-08-05), like the About copy.
+        highlights: stored.highlights ?? defaultSiteContent.highlights,
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -145,6 +153,8 @@ export const updateSiteContent = async (
                 .filter((line) => line.length > 0),
             dbsChecked: input.bio.dbsChecked === true,
             safeguarding: clean(input.bio.safeguarding),
+            // Only a well-formed, small image data-URI survives.
+            photo: PHOTO_PATTERN.test(input.bio.photo) ? input.bio.photo : '',
             experience: input.bio.experience
                 .map((entry) => ({
                     years: clean(entry.years),
@@ -202,6 +212,9 @@ export const updateSiteContent = async (
                 .filter((factor) => factor.title.length > 0),
             note: clean(input.pricing.note),
         },
+        highlights: input.highlights
+            .map(clean)
+            .filter((line) => line.length > 0),
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -373,6 +386,12 @@ export const validateSiteContentInput = (
     ) {
         return `bio.safeguarding must be a string of ${MAX_SUBHEAD} characters or fewer.`
     }
+    if (!isString(bio.photo)) {
+        return 'bio.photo must be a string (may be empty).'
+    }
+    if (bio.photo !== '' && !PHOTO_PATTERN.test(bio.photo)) {
+        return 'bio.photo must be a small jpeg/png/webp data-URI — the About page resizes photos automatically; republish from there.'
+    }
     for (const [name, list] of [
         ['experience', bio.experience],
         ['education', bio.education],
@@ -506,6 +525,17 @@ export const validateSiteContentInput = (
     }
     if (!isString(pricing.note) || pricing.note.trim().length > MAX_SUBHEAD) {
         return `pricing.note must be a string of ${MAX_SUBHEAD} characters or fewer.`
+    }
+
+    const highlights = input.highlights as string[] | undefined
+    if (!Array.isArray(highlights) || !highlights.every(isString)) {
+        return 'highlights must be a list of lines (it may be empty).'
+    }
+    if (highlights.length > MAX_LIST) {
+        return `highlights must list ${MAX_LIST} or fewer.`
+    }
+    if (highlights.some((line) => line.trim().length > MAX_LINE)) {
+        return `highlights entries must be ${MAX_LINE} characters or fewer.`
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined
