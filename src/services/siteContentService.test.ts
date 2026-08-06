@@ -103,8 +103,10 @@ describe('updateSiteContent', () => {
         const served = await getSiteContent()
         // Empty — the owner never approved the bundled draft FAQ.
         expect(served.faq).toEqual([])
+        // The bio is different (owner call 2026-08-04): a blank bio serves
+        // the owner's own prepared About copy — approved by provision.
+        expect(served.bio).toEqual(defaultSiteContent.bio)
         expect(served.bio.dbsChecked).toBe(false)
-        expect(served.bio.heading).toBe('')
         // The new keys join the end, every key exactly once.
         expect(served.sectionOrder).toEqual([
             'hero',
