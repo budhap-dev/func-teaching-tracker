@@ -55,6 +55,8 @@ export const getSiteContent = async (): Promise<SiteContent> => {
             safeguarding: '',
         },
         faq: stored.faq ?? [],
+        // Empty pricing: the from-price never appears unpublished.
+        pricing: stored.pricing ?? { rates: [], factors: [], note: '' },
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -125,6 +127,27 @@ export const updateSiteContent = async (
                 answer: clean(item.answer),
             }))
             .filter((item) => item.question.length > 0),
+        pricing: {
+            // A rate needs both halves: a level label and whole pounds
+            // 1-999. Anything else drops the row.
+            rates: input.pricing.rates
+                .map((rate) => ({
+                    label: clean(rate.label),
+                    fromPerHour: Number.isFinite(rate.fromPerHour)
+                        ? Math.min(Math.max(Math.floor(rate.fromPerHour), 0), 999)
+                        : 0,
+                }))
+                .filter(
+                    (rate) => rate.label.length > 0 && rate.fromPerHour > 0
+                ),
+            factors: input.pricing.factors
+                .map((factor) => ({
+                    title: clean(factor.title),
+                    detail: clean(factor.detail),
+                }))
+                .filter((factor) => factor.title.length > 0),
+            note: clean(input.pricing.note),
+        },
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -321,6 +344,50 @@ export const validateSiteContentInput = (
         if (item.answer.trim().length > MAX_ANSWER) {
             return `${at}.answer must be ${MAX_ANSWER} characters or fewer.`
         }
+    }
+
+    const pricing = input.pricing as SiteContent['pricing'] | undefined
+    if (!pricing || typeof pricing !== 'object') {
+        return 'pricing is required.'
+    }
+    if (!Array.isArray(pricing.rates)) {
+        return 'pricing.rates must be a list (it may be empty).'
+    }
+    if (pricing.rates.length > MAX_LIST) {
+        return `pricing.rates must list ${MAX_LIST} or fewer.`
+    }
+    for (const [index, rate] of pricing.rates.entries()) {
+        const at = `pricing.rates[${index}]`
+        if (!rate || typeof rate !== 'object') {
+            return `${at} must be an object.`
+        }
+        if (!isNonEmptyString(rate.label)) {
+            return `${at}.label is required.`
+        }
+        if (rate.label.trim().length > MAX_NAME) {
+            return `${at}.label must be ${MAX_NAME} characters or fewer.`
+        }
+        if (
+            typeof rate.fromPerHour !== 'number' ||
+            !Number.isFinite(rate.fromPerHour)
+        ) {
+            return `${at}.fromPerHour must be a number.`
+        }
+    }
+    if (!Array.isArray(pricing.factors)) {
+        return 'pricing.factors must be a list (it may be empty).'
+    }
+    if (pricing.factors.length > MAX_LIST) {
+        return `pricing.factors must list ${MAX_LIST} or fewer.`
+    }
+    for (const [index, factor] of pricing.factors.entries()) {
+        const error = pairError(factor, `pricing.factors[${index}]`)
+        if (error) {
+            return error
+        }
+    }
+    if (!isString(pricing.note) || pricing.note.trim().length > MAX_SUBHEAD) {
+        return `pricing.note must be a string of ${MAX_SUBHEAD} characters or fewer.`
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined

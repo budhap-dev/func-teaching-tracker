@@ -72,6 +72,33 @@ export interface BioSection {
     safeguarding: string
 }
 
+/** One per-level from-rate (REQ-022), e.g. GCSE from £20/hr. */
+export interface PricingRate {
+    /** The level the rate anchors, e.g. "GCSE", "A-level". */
+    label: string
+    /** Whole pounds per hour, per student. */
+    fromPerHour: number
+}
+
+/** One named factor that shapes the exact rate (REQ-022). */
+export interface PricingFactor {
+    title: string
+    detail: string
+}
+
+/**
+ * Transparent pricing (REQ-022). Rates vary by level (owner 2026-08-04:
+ * generally from GCSE £20/hr and A-level £30/hr, per student); factors
+ * are NAMED, never fake-quantified. No rates = pricing not published —
+ * older documents normalise that way (never-invent).
+ */
+export interface PricingSection {
+    rates: PricingRate[]
+    factors: PricingFactor[]
+    /** e.g. "Your exact rate is agreed at the free assessment." */
+    note: string
+}
+
 /** One FAQ entry (REQ-025). Plain text; HTML is stripped on write. */
 export interface FaqItem {
     question: string
@@ -100,6 +127,7 @@ export interface SiteContent {
     approach: ApproachPoint[]
     bio: BioSection
     faq: FaqItem[]
+    pricing: PricingSection
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

@@ -112,6 +112,26 @@ export const defaultSiteContent: SiteContent = {
             answer: 'Every lesson ends with a written note of what was covered and what to practise, and progress is reviewed against the goals we agree at the start — you stay in the loop without having to ask.',
         },
     ],
+    // Transparent pricing (REQ-022): the owner's anchor, with the factors
+    // NAMED (never fake-quantified) and the honest close.
+    pricing: {
+        // The owner's anchors (2026-08-04): rates rise with the years.
+        rates: [
+            { label: 'GCSE', fromPerHour: 20 },
+            { label: 'A-level', fromPerHour: 30 },
+        ],
+        factors: [
+            {
+                title: 'One-to-one or small group',
+                detail: 'Group lessons share the hour — and the rate — between students.',
+            },
+            {
+                title: 'Online or in person',
+                detail: 'In-person lessons may reflect travel; online carries no extras.',
+            },
+        ],
+        note: 'Your exact rate is agreed at the free assessment — no obligation, no surprises.',
+    },
     // Empty until the teacher writes one — an empty section renders nothing.
     freeform: { heading: '', markdown: '' },
     sectionOrder: [
