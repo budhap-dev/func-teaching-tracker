@@ -35,6 +35,15 @@ const stripHtml = (text: string): string =>
 
 const clean = (text: string): string => stripHtml(text).trim()
 
+/** A bio with no heading, body or experience has nothing to say — serve
+    the owner's prepared About copy instead. */
+const withPreparedBioFallback = (
+    bio: SiteContent['bio']
+): SiteContent['bio'] =>
+    !bio.heading && !bio.body && bio.experience.length === 0
+        ? defaultSiteContent.bio
+        : bio
+
 /** The all-empty bio: what older documents' gaps are filled with. */
 const EMPTY_BIO = {
     heading: '',
@@ -62,7 +71,14 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         ...stored,
         // Older documents may predate any of the bio's fields (REQ-021 and
         // REQ-037 grew it in stages) — fill every gap empty, stored wins.
-        bio: { ...EMPTY_BIO, ...(stored.bio ?? {}) },
+        // A bio with no substance serves the owner's PREPARED copy instead
+        // (owner call 2026-08-04): these are the owner's own words, given
+        // for publication — never-invent protects against unapproved
+        // content, and this content is approved.
+        bio: withPreparedBioFallback({
+            ...EMPTY_BIO,
+            ...(stored.bio ?? {}),
+        }),
         faq: stored.faq ?? [],
         // Empty pricing: the from-price never appears unpublished.
         pricing: stored.pricing ?? { rates: [], factors: [], note: '' },
