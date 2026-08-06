@@ -70,6 +70,29 @@ export interface BioSection {
     dbsChecked: boolean
     /** A short safeguarding statement. */
     safeguarding: string
+    /** CV timelines (REQ-037): teaching first, then education. */
+    experience: CvEntry[]
+    education: CvEntry[]
+    /** The "What you can expect" tick list. */
+    expectations: string[]
+    /** Free sections — philosophy, promise, whatever comes next. */
+    sections: AboutSection[]
+}
+
+/** One dated CV entry on the About page (REQ-037). */
+export interface CvEntry {
+    /** e.g. "Since 2019", "2005". Free text, shown quietly. */
+    years: string
+    title: string
+    place: string
+    detail: string
+}
+
+/** A repeating About section: a heading plus a Markdown body (REQ-037). */
+export interface AboutSection {
+    heading: string
+    /** Markdown only — raw HTML is stripped on write. */
+    markdown: string
 }
 
 /** One per-level from-rate (REQ-022), e.g. GCSE from £20/hr. */

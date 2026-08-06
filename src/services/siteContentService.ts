@@ -35,6 +35,19 @@ const stripHtml = (text: string): string =>
 
 const clean = (text: string): string => stripHtml(text).trim()
 
+/** The all-empty bio: what older documents' gaps are filled with. */
+const EMPTY_BIO = {
+    heading: '',
+    body: '',
+    qualifications: [],
+    dbsChecked: false,
+    safeguarding: '',
+    experience: [],
+    education: [],
+    expectations: [],
+    sections: [],
+}
+
 /** The published content, or the bundled defaults when none exists yet. */
 export const getSiteContent = async (): Promise<SiteContent> => {
     const stored = await dataStore.getSiteContent()
@@ -47,13 +60,9 @@ export const getSiteContent = async (): Promise<SiteContent> => {
     // the end of its section order.
     return {
         ...stored,
-        bio: stored.bio ?? {
-            heading: '',
-            body: '',
-            qualifications: [],
-            dbsChecked: false,
-            safeguarding: '',
-        },
+        // Older documents may predate any of the bio's fields (REQ-021 and
+        // REQ-037 grew it in stages) — fill every gap empty, stored wins.
+        bio: { ...EMPTY_BIO, ...(stored.bio ?? {}) },
         faq: stored.faq ?? [],
         // Empty pricing: the from-price never appears unpublished.
         pricing: stored.pricing ?? { rates: [], factors: [], note: '' },
@@ -120,6 +129,35 @@ export const updateSiteContent = async (
                 .filter((line) => line.length > 0),
             dbsChecked: input.bio.dbsChecked === true,
             safeguarding: clean(input.bio.safeguarding),
+            experience: input.bio.experience
+                .map((entry) => ({
+                    years: clean(entry.years),
+                    title: clean(entry.title),
+                    place: clean(entry.place),
+                    detail: clean(entry.detail),
+                }))
+                .filter((entry) => entry.title.length > 0),
+            education: input.bio.education
+                .map((entry) => ({
+                    years: clean(entry.years),
+                    title: clean(entry.title),
+                    place: clean(entry.place),
+                    detail: clean(entry.detail),
+                }))
+                .filter((entry) => entry.title.length > 0),
+            expectations: input.bio.expectations
+                .map(clean)
+                .filter((line) => line.length > 0),
+            sections: input.bio.sections
+                .map((section) => ({
+                    heading: clean(section.heading),
+                    markdown: stripHtml(section.markdown).trim(),
+                }))
+                .filter(
+                    (section) =>
+                        section.heading.length > 0 ||
+                        section.markdown.length > 0
+                ),
         },
         faq: input.faq
             .map((item) => ({
@@ -318,6 +356,70 @@ export const validateSiteContentInput = (
         bio.safeguarding.trim().length > MAX_SUBHEAD
     ) {
         return `bio.safeguarding must be a string of ${MAX_SUBHEAD} characters or fewer.`
+    }
+    for (const [name, list] of [
+        ['experience', bio.experience],
+        ['education', bio.education],
+    ] as const) {
+        if (!Array.isArray(list)) {
+            return `bio.${name} must be a list (it may be empty).`
+        }
+        if (list.length > MAX_LIST) {
+            return `bio.${name} must list ${MAX_LIST} or fewer.`
+        }
+        for (const [index, entry] of list.entries()) {
+            const at = `bio.${name}[${index}]`
+            if (!entry || typeof entry !== 'object') {
+                return `${at} must be an object.`
+            }
+            if (!isNonEmptyString(entry.title)) {
+                return `${at}.title is required.`
+            }
+            for (const field of ['years', 'title', 'place'] as const) {
+                if (
+                    !isString(entry[field]) ||
+                    entry[field].trim().length > MAX_LINE
+                ) {
+                    return `${at}.${field} must be a string of ${MAX_LINE} characters or fewer.`
+                }
+            }
+            if (
+                !isString(entry.detail) ||
+                entry.detail.trim().length > MAX_DETAIL
+            ) {
+                return `${at}.detail must be a string of ${MAX_DETAIL} characters or fewer.`
+            }
+        }
+    }
+    if (
+        !Array.isArray(bio.expectations) ||
+        !bio.expectations.every(isString)
+    ) {
+        return 'bio.expectations must be a list of lines.'
+    }
+    if (bio.expectations.length > MAX_LIST) {
+        return `bio.expectations must list ${MAX_LIST} or fewer.`
+    }
+    if (bio.expectations.some((line) => line.trim().length > MAX_LINE)) {
+        return `bio.expectations entries must be ${MAX_LINE} characters or fewer.`
+    }
+    if (!Array.isArray(bio.sections)) {
+        return 'bio.sections must be a list (it may be empty).'
+    }
+    if (bio.sections.length > MAX_LIST) {
+        return `bio.sections must list ${MAX_LIST} or fewer.`
+    }
+    for (const [index, section] of bio.sections.entries()) {
+        const at = `bio.sections[${index}]`
+        if (!section || typeof section !== 'object') {
+            return `${at} must be an object.`
+        }
+        if (!isString(section.heading) || section.heading.trim().length > MAX_LINE) {
+            return `${at}.heading must be a string of ${MAX_LINE} characters or fewer.`
+        }
+        if (!isString(section.markdown) || section.markdown.length > MAX_MARKDOWN) {
+            return `${at}.markdown must be a string of ${MAX_MARKDOWN} characters or fewer.`
+        }
     }
 
     const faq = input.faq as SiteContent['faq'] | undefined
