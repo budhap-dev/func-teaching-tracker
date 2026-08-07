@@ -205,8 +205,7 @@ export const defaultSiteContent: SiteContent = {
         'Confidence Building & Study Skills Development',
         'Progress Tracking and Parent Feedback',
         'Foundation, Intermediate & Advanced Learning Support',
-        'GCSE, IGCSE & A-Level Preparation',
-        'University Entrance & Scholarship Coaching',
+        'GCSE A-Level Preparation',
         'Flexible In-Person and Online Sessions',
     ],
     // Empty until the teacher writes one — an empty section renders nothing.
