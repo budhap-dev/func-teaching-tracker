@@ -90,6 +90,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         pricing: stored.pricing ?? { rates: [], factors: [], note: '' },
         // Owner-approved by provision (2026-08-05), like the About copy.
         highlights: stored.highlights ?? defaultSiteContent.highlights,
+        services: stored.services ?? defaultSiteContent.services,
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -213,6 +214,9 @@ export const updateSiteContent = async (
             note: clean(input.pricing.note),
         },
         highlights: input.highlights
+            .map(clean)
+            .filter((line) => line.length > 0),
+        services: input.services
             .map(clean)
             .filter((line) => line.length > 0),
         freeform: {
@@ -536,6 +540,17 @@ export const validateSiteContentInput = (
     }
     if (highlights.some((line) => line.trim().length > MAX_LINE)) {
         return `highlights entries must be ${MAX_LINE} characters or fewer.`
+    }
+
+    const services = input.services as string[] | undefined
+    if (!Array.isArray(services) || !services.every(isString)) {
+        return 'services must be a list of lines (it may be empty).'
+    }
+    if (services.length > MAX_LIST) {
+        return `services must list ${MAX_LIST} or fewer.`
+    }
+    if (services.some((line) => line.trim().length > MAX_LINE)) {
+        return `services entries must be ${MAX_LINE} characters or fewer.`
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined

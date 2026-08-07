@@ -158,6 +158,9 @@ export interface SiteContent {
     /** Hero highlight tiles (REQ-038) — short owner-approved selling
         points shown under the Home band. */
     highlights: string[]
+    /** The services checklist on Offerings — owner-approved lines
+        (2026-08-07), ticks supplied by the view. */
+    services: string[]
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]
