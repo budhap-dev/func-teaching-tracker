@@ -168,7 +168,7 @@ App origin):
 
 | Env  | Allowed frontend origin                                   |
 | ---- | --------------------------------------------------------- |
-| dev  | https://delightful-water-09b7c480f.7.azurestaticapps.net   |
+| dev  | https://kind-sea-093f96a0f.7.azurestaticapps.net   |
 | prod | https://nice-sea-095463c0f.7.azurestaticapps.net           |
 
 Quick check:

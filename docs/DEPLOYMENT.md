@@ -53,7 +53,7 @@ authenticates to Azure with short-lived **OIDC** tokens.
 
 | Env    | API base URL                                                | Function App                    | Allowed frontend origin (CORS)                            |
 | ------ | ----------------------------------------------------------- | ------------------------------- | --------------------------------------------------------- |
-| `dev`  | https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api   | `func-teachtracker-dev-pjlmrq`  | https://delightful-water-09b7c480f.7.azurestaticapps.net   |
+| `dev`  | https://func-teachtracker-dev-pjlmrq.azurewebsites.net/api   | `func-teachtracker-dev-pjlmrq`  | https://kind-sea-093f96a0f.7.azurestaticapps.net   |
 | `prod` | https://func-teachtracker-prod-gjvecw.azurewebsites.net/api  | `func-teachtracker-prod-gjvecw` | https://nice-sea-095463c0f.7.azurestaticapps.net           |
 
 Subscription `e16bea76-64f0-45a5-ae4a-53701ff61801` · Tenant `d2fa8fd6-d1f2-4ac4-bcf5-e8dd34885bb3`
