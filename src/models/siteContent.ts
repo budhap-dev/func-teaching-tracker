@@ -99,11 +99,13 @@ export interface AboutSection {
     markdown: string
 }
 
-/** One per-level from-rate (REQ-022), e.g. GCSE from £20/hr. */
+/** One per-level from-rate (REQ-022), e.g. GCSE from £20/session. */
 export interface PricingRate {
     /** The level the rate anchors, e.g. "GCSE", "A-level". */
     label: string
-    /** Whole pounds per hour, per student. */
+    /** Whole pounds per session, per student. The field name stays
+        `fromPerHour` for published-document compatibility — the pages
+        say "per session" (owner call, 2026-08-09). */
     fromPerHour: number
 }
 
@@ -115,7 +117,7 @@ export interface PricingFactor {
 
 /**
  * Transparent pricing (REQ-022). Rates vary by level (owner 2026-08-04:
- * generally from GCSE £20/hr and A-level £30/hr, per student); factors
+ * generally from GCSE £20/session and A-level £30/session, per student); factors
  * are NAMED, never fake-quantified. No rates = pricing not published —
  * older documents normalise that way (never-invent).
  */
@@ -161,6 +163,9 @@ export interface SiteContent {
     /** The services checklist on Offerings — owner-approved lines
         (2026-08-07), ticks supplied by the view. */
     services: string[]
+    /** The subject cards' third tag label — "Delivery" by default, the
+        owner can rename it (e.g. "Experience") (2026-08-09). */
+    modesLabel: string
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

@@ -195,6 +195,8 @@ export const defaultSiteContent: SiteContent = {
         'Exam and assessment preparation',
         'Proven results',
     ],
+    // The subject cards' third tag label — renameable by the owner.
+    modesLabel: 'Delivery',
     // The Offerings services checklist — the owner's list, verbatim
     // (2026-08-07); the view supplies the ticks.
     services: [
