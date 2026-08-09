@@ -139,6 +139,20 @@ export const openApiDocument = {
                             'How fees is billed. Absent means per-session.',
                     },
                     notes: { type: 'string' },
+                    datedNotes: {
+                        type: 'array',
+                        description:
+                            'The diary log (REQ-0xx dated notes); optional.',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'integer' },
+                                date: { type: 'string', format: 'date' },
+                                text: { type: 'string' },
+                            },
+                            required: ['id', 'date', 'text'],
+                        },
+                    },
                     parentName: { type: 'string', example: 'Byron Lovelace' },
                     contactNumber: { type: 'string', example: '+44 7700 900123' },
                     address: { type: 'string' },
@@ -444,7 +458,9 @@ export const openApiDocument = {
             },
             TestimonialRole: {
                 type: 'string',
-                enum: ['Parent', 'Student'],
+                enum: ['Parent', 'Student', 'Professional', 'Personal'],
+                description:
+                    'Professional/Personal are recommendations (colleagues, referees) — star-free: they carry no rating, and the site renders them in their own section.',
             },
             SiteContent: {
                 type: 'object',
@@ -461,6 +477,13 @@ export const openApiDocument = {
                                 type: 'string',
                                 maxLength: 200,
                                 description: 'May be empty (hides the line).',
+                            },
+                            experienceYears: {
+                                type: 'integer',
+                                minimum: 1,
+                                maximum: 99,
+                                description:
+                                    'Years of teaching experience (REQ-020). Absent or 0 hides every experience chip.',
                             },
                         },
                         required: ['headline', 'subhead', 'availability'],
@@ -523,6 +546,54 @@ export const openApiDocument = {
                                 type: 'string',
                                 maxLength: 400,
                             },
+                            photo: {
+                                type: 'string',
+                                description:
+                                    "Small portrait as a data URI — data:image/(jpeg|png|webp);base64 with at most 16,000 base64 characters (the document lives in one table property). Empty string = no photo.",
+                            },
+                            experience: {
+                                type: 'array',
+                                maxItems: 12,
+                                description:
+                                    'CV rows (REQ-037), newest first.',
+                                items: {
+                                    $ref: '#/components/schemas/CvEntry',
+                                },
+                            },
+                            education: {
+                                type: 'array',
+                                maxItems: 12,
+                                items: {
+                                    $ref: '#/components/schemas/CvEntry',
+                                },
+                            },
+                            expectations: {
+                                type: 'array',
+                                maxItems: 12,
+                                description:
+                                    '"What you can expect" lines; the view supplies icons.',
+                                items: { type: 'string', maxLength: 200 },
+                            },
+                            sections: {
+                                type: 'array',
+                                maxItems: 12,
+                                description:
+                                    'Extra Markdown sections (e.g. philosophy, promise).',
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        heading: {
+                                            type: 'string',
+                                            maxLength: 200,
+                                        },
+                                        markdown: {
+                                            type: 'string',
+                                            maxLength: 5000,
+                                        },
+                                    },
+                                    required: ['heading', 'markdown'],
+                                },
+                            },
                         },
                         required: [
                             'heading',
@@ -531,6 +602,55 @@ export const openApiDocument = {
                             'dbsChecked',
                             'safeguarding',
                         ],
+                    },
+                    pricing: {
+                        type: 'object',
+                        description:
+                            'Transparent pricing (REQ-022). Empty lists render an honest "ask me" page.',
+                        properties: {
+                            rates: {
+                                type: 'array',
+                                maxItems: 12,
+                                items: {
+                                    type: 'object',
+                                    properties: {
+                                        label: {
+                                            type: 'string',
+                                            maxLength: 60,
+                                        },
+                                        fromPerHour: {
+                                            type: 'integer',
+                                            minimum: 1,
+                                            maximum: 999,
+                                        },
+                                    },
+                                    required: ['label', 'fromPerHour'],
+                                },
+                            },
+                            factors: {
+                                type: 'array',
+                                maxItems: 12,
+                                items: {
+                                    $ref: '#/components/schemas/TitledDetail',
+                                },
+                            },
+                            note: { type: 'string', maxLength: 400 },
+                        },
+                        required: ['rates', 'factors', 'note'],
+                    },
+                    highlights: {
+                        type: 'array',
+                        maxItems: 12,
+                        description:
+                            'Hero highlight tiles (REQ-038) — short selling points; the view keyword-matches icons.',
+                        items: { type: 'string', maxLength: 200 },
+                    },
+                    services: {
+                        type: 'array',
+                        maxItems: 12,
+                        description:
+                            'The "What I offer" checklist on Offerings; the view supplies the ticks.',
+                        items: { type: 'string', maxLength: 200 },
                     },
                     faq: {
                         type: 'array',
@@ -585,10 +705,25 @@ export const openApiDocument = {
                     'journey',
                     'approach',
                     'bio',
+                    'pricing',
+                    'highlights',
+                    'services',
                     'faq',
                     'freeform',
                     'sectionOrder',
                 ],
+            },
+            CvEntry: {
+                type: 'object',
+                description:
+                    'One CV row. All four keys are present; only title must be non-empty — rows without one are dropped on write.',
+                properties: {
+                    years: { type: 'string', maxLength: 200 },
+                    title: { type: 'string', maxLength: 200, minLength: 1 },
+                    place: { type: 'string', maxLength: 200 },
+                    detail: { type: 'string', maxLength: 400 },
+                },
+                required: ['years', 'title', 'place', 'detail'],
             },
             TitledDetail: {
                 type: 'object',
@@ -692,6 +827,8 @@ export const openApiDocument = {
                         minimum: 1,
                         maximum: 5,
                         example: 5,
+                        description:
+                            'Present for Parent/Student reviews only — recommendations (Professional/Personal) never carry one.',
                     },
                     quote: {
                         type: 'string',
@@ -718,7 +855,6 @@ export const openApiDocument = {
                     'id',
                     'authorName',
                     'role',
-                    'rating',
                     'quote',
                     'status',
                     'submittedOn',
@@ -733,14 +869,20 @@ export const openApiDocument = {
                     role: { $ref: '#/components/schemas/TestimonialRole' },
                     subject: { type: 'string', maxLength: 60 },
                     year: { type: 'string', maxLength: 10 },
-                    rating: { type: 'integer', minimum: 1, maximum: 5 },
+                    rating: {
+                        type: 'integer',
+                        minimum: 1,
+                        maximum: 5,
+                        description:
+                            'Required for Parent/Student; rejected for Professional/Personal recommendations.',
+                    },
                     quote: { type: 'string', maxLength: 600 },
                     website: {
                         type: 'string',
                         description: 'Honeypot — leave empty.',
                     },
                 },
-                required: ['authorName', 'role', 'rating', 'quote'],
+                required: ['authorName', 'role', 'quote'],
             },
             TestimonialUpdate: {
                 type: 'object',
@@ -1190,6 +1332,82 @@ export const openApiDocument = {
                     '401': { $ref: '#/components/responses/Unauthorized' },
                     '403': { $ref: '#/components/responses/Forbidden' },
                     '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+            delete: {
+                tags: ['Sessions'],
+                summary: 'Permanently delete a class (all rows if a group)',
+                operationId: 'deleteSession',
+                parameters: [{ $ref: '#/components/parameters/SessionIdPath' }],
+                responses: {
+                    '200': {
+                        description:
+                            'Deleted. The ids of every removed row (200, not 204 — the client prunes by id).',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        ids: {
+                                            type: 'array',
+                                            items: { type: 'integer' },
+                                        },
+                                    },
+                                    required: ['ids'],
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                },
+            },
+        },
+        '/sessions/{id}/members': {
+            post: {
+                tags: ['Sessions'],
+                summary: 'Add a student to a class',
+                description:
+                    'Promotes a solo class to a group; restores a previously cancelled member row instead of duplicating it.',
+                operationId: 'addSessionMember',
+                parameters: [{ $ref: '#/components/parameters/SessionIdPath' }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    studentId: { type: 'integer' },
+                                },
+                                required: ['studentId'],
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'The full group after the addition.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/ScheduledSession',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { $ref: '#/components/responses/BadRequest' },
+                    '401': { $ref: '#/components/responses/Unauthorized' },
+                    '403': { $ref: '#/components/responses/Forbidden' },
+                    '404': { $ref: '#/components/responses/NotFound' },
+                    '409': {
+                        description: 'Already a member of this class.',
+                    },
                 },
             },
         },
