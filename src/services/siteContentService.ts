@@ -91,6 +91,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         // Owner-approved by provision (2026-08-05), like the About copy.
         highlights: stored.highlights ?? defaultSiteContent.highlights,
         services: stored.services ?? defaultSiteContent.services,
+        modesLabel: stored.modesLabel ?? 'Delivery',
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -219,6 +220,7 @@ export const updateSiteContent = async (
         services: input.services
             .map(clean)
             .filter((line) => line.length > 0),
+        modesLabel: clean(input.modesLabel) || 'Delivery',
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -551,6 +553,13 @@ export const validateSiteContentInput = (
     }
     if (services.some((line) => line.trim().length > MAX_LINE)) {
         return `services entries must be ${MAX_LINE} characters or fewer.`
+    }
+
+    if (
+        !isString(input.modesLabel) ||
+        input.modesLabel.trim().length > MAX_NAME
+    ) {
+        return `modesLabel must be a string of ${MAX_NAME} characters or fewer.`
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined
