@@ -652,6 +652,38 @@ export const openApiDocument = {
                             'The "What I offer" checklist on Offerings; the view supplies the ticks.',
                         items: { type: 'string', maxLength: 200 },
                     },
+                    modesLabel: {
+                        type: 'string',
+                        maxLength: 60,
+                        description:
+                            'The subject cards\' third tag label — "Delivery" unless renamed (e.g. "Experience").',
+                    },
+                    mobileNav: {
+                        type: 'object',
+                        description:
+                            "The visitors' phone tab bar (REQ-049): three flat slots + the raised spotlight; Menu is always the fifth tab. Unknown keys are dropped on write; contact hides itself while unpublished.",
+                        properties: {
+                            items: {
+                                type: 'array',
+                                maxItems: 3,
+                                items: {
+                                    type: 'string',
+                                    enum: [
+                                        'home',
+                                        'offerings',
+                                        'pricing',
+                                        'enquire',
+                                        'about',
+                                        'reviews',
+                                        'faq',
+                                        'contact',
+                                    ],
+                                },
+                            },
+                            spotlight: { type: 'string' },
+                        },
+                        required: ['items', 'spotlight'],
+                    },
                     faq: {
                         type: 'array',
                         maxItems: 20,

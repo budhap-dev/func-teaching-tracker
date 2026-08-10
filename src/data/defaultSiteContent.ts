@@ -197,6 +197,12 @@ export const defaultSiteContent: SiteContent = {
     ],
     // The subject cards' third tag label — renameable by the owner.
     modesLabel: 'Delivery',
+    // The phone tab bar (REQ-049): three flat slots + the raised
+    // spotlight; 'menu' is always the fifth tab.
+    mobileNav: {
+        items: ['home', 'offerings', 'pricing'],
+        spotlight: 'enquire',
+    },
     // The Offerings services checklist — the owner's list, verbatim
     // (2026-08-07); the view supplies the ticks.
     services: [
