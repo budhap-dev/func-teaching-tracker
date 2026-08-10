@@ -1,0 +1,15 @@
+# REQ-040: dependency alerts. Weekly, grouped, so updates arrive as a
+# reviewable batch instead of a PR per package.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-dependencies:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
