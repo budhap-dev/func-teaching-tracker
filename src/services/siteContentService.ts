@@ -20,6 +20,17 @@ const MAX_MARKDOWN = 5000
 const MAX_FAQ = 20
 const MAX_ANSWER = 600
 const MAX_QUALIFICATIONS = 12
+// The phone tab bar's configurable pages (REQ-049); 'menu' is implicit.
+const MOBILE_NAV_KEYS = [
+    'home',
+    'offerings',
+    'pricing',
+    'enquire',
+    'about',
+    'reviews',
+    'faq',
+    'contact',
+] as const
 
 /**
  * Strips raw HTML from a value on write (REQ-008's API-side control): the
@@ -92,6 +103,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         highlights: stored.highlights ?? defaultSiteContent.highlights,
         services: stored.services ?? defaultSiteContent.services,
         modesLabel: stored.modesLabel ?? 'Delivery',
+        mobileNav: stored.mobileNav ?? defaultSiteContent.mobileNav,
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -221,6 +233,19 @@ export const updateSiteContent = async (
             .map(clean)
             .filter((line) => line.length > 0),
         modesLabel: clean(input.modesLabel) || 'Delivery',
+        mobileNav: {
+            items: input.mobileNav.items
+                .map((key) => clean(key).toLowerCase())
+                .filter((key) =>
+                    (MOBILE_NAV_KEYS as readonly string[]).includes(key)
+                )
+                .slice(0, 3),
+            spotlight: (MOBILE_NAV_KEYS as readonly string[]).includes(
+                clean(input.mobileNav.spotlight).toLowerCase()
+            )
+                ? clean(input.mobileNav.spotlight).toLowerCase()
+                : 'enquire',
+        },
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -560,6 +585,23 @@ export const validateSiteContentInput = (
         input.modesLabel.trim().length > MAX_NAME
     ) {
         return `modesLabel must be a string of ${MAX_NAME} characters or fewer.`
+    }
+
+    const mobileNav = input.mobileNav as
+        | { items?: unknown; spotlight?: unknown }
+        | undefined
+    if (!mobileNav || typeof mobileNav !== 'object') {
+        return 'mobileNav must be an object with items and spotlight.'
+    }
+    if (
+        !Array.isArray(mobileNav.items) ||
+        !mobileNav.items.every(isString) ||
+        mobileNav.items.length > 3
+    ) {
+        return 'mobileNav.items must be a list of at most 3 page keys.'
+    }
+    if (!isString(mobileNav.spotlight)) {
+        return 'mobileNav.spotlight must be a page key.'
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined

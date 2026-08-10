@@ -166,6 +166,9 @@ export interface SiteContent {
     /** The subject cards' third tag label — "Delivery" by default, the
         owner can rename it (e.g. "Experience") (2026-08-09). */
     modesLabel: string
+    /** The phone tab bar (REQ-049): which public pages fill the slots
+        and which one is the raised spotlight. Keys are page ids. */
+    mobileNav: { items: string[]; spotlight: string }
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]
