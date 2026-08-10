@@ -169,6 +169,10 @@ export interface SiteContent {
     /** The phone tab bar (REQ-049): which public pages fill the slots
         and which one is the raised spotlight. Keys are page ids. */
     mobileNav: { items: string[]; spotlight: string }
+    /** The teacher's own phone tab bar (2026-08-10) — same shape, the
+        teacher work-screen keys. Public in the document but carries
+        nothing sensitive (page ids only). */
+    mobileNavTeacher: { items: string[]; spotlight: string }
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

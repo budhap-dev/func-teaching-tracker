@@ -684,6 +684,33 @@ export const openApiDocument = {
                         },
                         required: ['items', 'spotlight'],
                     },
+                    mobileNavTeacher: {
+                        type: 'object',
+                        description:
+                            "The teacher's own phone tab bar (2026-08-10): same shape as mobileNav, keyed over the work screens.",
+                        properties: {
+                            items: {
+                                type: 'array',
+                                maxItems: 3,
+                                items: {
+                                    type: 'string',
+                                    enum: [
+                                        'dashboard',
+                                        'students',
+                                        'scheduling',
+                                        'payments',
+                                        'snapshot',
+                                        'leads',
+                                        'alumni',
+                                        'moderation',
+                                        'editor',
+                                    ],
+                                },
+                            },
+                            spotlight: { type: 'string' },
+                        },
+                        required: ['items', 'spotlight'],
+                    },
                     faq: {
                         type: 'array',
                         maxItems: 20,

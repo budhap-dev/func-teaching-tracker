@@ -31,6 +31,33 @@ const MOBILE_NAV_KEYS = [
     'faq',
     'contact',
 ] as const
+// The teacher bar's vocabulary — the work screens.
+const TEACHER_NAV_KEYS = [
+    'dashboard',
+    'students',
+    'scheduling',
+    'payments',
+    'snapshot',
+    'leads',
+    'alumni',
+    'moderation',
+    'editor',
+] as const
+
+/** One bar config sanitised against its vocabulary. */
+const sanitiseNav = (
+    input: { items: string[]; spotlight: string },
+    keys: readonly string[],
+    fallbackSpotlight: string
+) => ({
+    items: input.items
+        .map((key) => key.trim().toLowerCase())
+        .filter((key) => keys.includes(key))
+        .slice(0, 3),
+    spotlight: keys.includes(input.spotlight.trim().toLowerCase())
+        ? input.spotlight.trim().toLowerCase()
+        : fallbackSpotlight,
+})
 
 /**
  * Strips raw HTML from a value on write (REQ-008's API-side control): the
@@ -104,6 +131,8 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         services: stored.services ?? defaultSiteContent.services,
         modesLabel: stored.modesLabel ?? 'Delivery',
         mobileNav: stored.mobileNav ?? defaultSiteContent.mobileNav,
+        mobileNavTeacher:
+            stored.mobileNavTeacher ?? defaultSiteContent.mobileNavTeacher,
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -233,19 +262,12 @@ export const updateSiteContent = async (
             .map(clean)
             .filter((line) => line.length > 0),
         modesLabel: clean(input.modesLabel) || 'Delivery',
-        mobileNav: {
-            items: input.mobileNav.items
-                .map((key) => clean(key).toLowerCase())
-                .filter((key) =>
-                    (MOBILE_NAV_KEYS as readonly string[]).includes(key)
-                )
-                .slice(0, 3),
-            spotlight: (MOBILE_NAV_KEYS as readonly string[]).includes(
-                clean(input.mobileNav.spotlight).toLowerCase()
-            )
-                ? clean(input.mobileNav.spotlight).toLowerCase()
-                : 'enquire',
-        },
+        mobileNav: sanitiseNav(input.mobileNav, MOBILE_NAV_KEYS, 'enquire'),
+        mobileNavTeacher: sanitiseNav(
+            input.mobileNavTeacher,
+            TEACHER_NAV_KEYS,
+            'payments'
+        ),
         freeform: {
             heading: clean(input.freeform.heading),
             // Markdown keeps its markup; only raw HTML is removed.
@@ -602,6 +624,22 @@ export const validateSiteContentInput = (
     }
     if (!isString(mobileNav.spotlight)) {
         return 'mobileNav.spotlight must be a page key.'
+    }
+    const teacherNav = input.mobileNavTeacher as
+        | { items?: unknown; spotlight?: unknown }
+        | undefined
+    if (!teacherNav || typeof teacherNav !== 'object') {
+        return 'mobileNavTeacher must be an object with items and spotlight.'
+    }
+    if (
+        !Array.isArray(teacherNav.items) ||
+        !teacherNav.items.every(isString) ||
+        teacherNav.items.length > 3
+    ) {
+        return 'mobileNavTeacher.items must be a list of at most 3 page keys.'
+    }
+    if (!isString(teacherNav.spotlight)) {
+        return 'mobileNavTeacher.spotlight must be a page key.'
     }
 
     const freeform = input.freeform as SiteContent['freeform'] | undefined

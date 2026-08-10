@@ -203,6 +203,11 @@ export const defaultSiteContent: SiteContent = {
         items: ['home', 'offerings', 'pricing'],
         spotlight: 'enquire',
     },
+    // The teacher's own bar: the daily-driver screens.
+    mobileNavTeacher: {
+        items: ['dashboard', 'students', 'scheduling'],
+        spotlight: 'payments',
+    },
     // The Offerings services checklist — the owner's list, verbatim
     // (2026-08-07); the view supplies the ticks.
     services: [
