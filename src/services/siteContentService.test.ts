@@ -285,6 +285,18 @@ describe('updateSiteContent', () => {
 })
 
 describe('validateSiteContentInput', () => {
+    it('rejects an over-long or non-string area served, allows empty', () => {
+        expect(
+            validateSiteContentInput(input({ areaServed: 'x'.repeat(61) }))
+        ).toMatch(/areaServed/)
+        expect(
+            validateSiteContentInput(input({ areaServed: 7 as never }))
+        ).toMatch(/areaServed/)
+        expect(
+            validateSiteContentInput(input({ areaServed: '' }))
+        ).toBeUndefined()
+    })
+
     it('rejects an over-long or non-string masthead pill, allows empty', () => {
         expect(
             validateSiteContentInput(input({ mastheadPill: 'x'.repeat(61) }))

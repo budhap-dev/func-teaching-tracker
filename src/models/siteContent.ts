@@ -169,6 +169,10 @@ export interface SiteContent {
     /** The masthead pill copy (2026-08-12). `{year}` renders as the
         current year in the view; empty hides the pill. */
     mastheadPill: string
+    /** Where the tutoring is offered, e.g. "Leeds" (REQ-043). Published
+        as the business's area served in the public site's structured
+        data; empty omits the claim - a location is the owner's to give. */
+    areaServed: string
     /** The phone tab bar (REQ-049): which public pages fill the slots
         and which one is the raised spotlight. Keys are page ids. */
     mobileNav: { items: string[]; spotlight: string }
