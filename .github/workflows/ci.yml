@@ -34,3 +34,41 @@ jobs:
 
             - name: Run tests
               run: npx vitest run
+
+    # REQ-045: the bundled defaults are mirrored in the frontend repo, which
+    # renders them until this API answers, and the mirror was discipline
+    # until it drifted twice. Each repo snapshots its own defaults to
+    # site-content.default.json (a unit test keeps that honest); this job
+    # proves the two files are the same.
+    #
+    # Cross-repo reads need a token GITHUB_TOKEN cannot provide: set the
+    # CONTENT_DRIFT_TOKEN secret (a fine-grained PAT with read-only Contents
+    # on both repos) to arm it. Without the secret the job says so loudly
+    # and passes, rather than blocking every PR on unfinished setup.
+    content-drift:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+
+            - name: Fetch the frontend repo's snapshot
+              id: peer
+              env:
+                  GH_TOKEN: ${{ secrets.CONTENT_DRIFT_TOKEN }}
+              run: |
+                  if [ -z "$GH_TOKEN" ]; then
+                    echo "::warning title=Drift check skipped::CONTENT_DRIFT_TOKEN is not set, so the frontend repo's defaults were not compared."
+                    echo "skipped=true" >> "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+                  gh api repos/budhap-dev/TeachingTracker/contents/site-content.default.json \
+                    -H "Accept: application/vnd.github.raw" > peer-site-content.default.json
+
+            - name: Compare the bundled defaults
+              if: steps.peer.outputs.skipped != 'true'
+              run: |
+                  if ! diff -u peer-site-content.default.json site-content.default.json; then
+                    echo "::error title=Default content drift::This repo's bundled defaults differ from the frontend repo's. Bring both sides into line, run 'npx vitest -u' in each, and commit the snapshots."
+                    exit 1
+                  fi
+                  echo "Bundled defaults match the frontend repo."

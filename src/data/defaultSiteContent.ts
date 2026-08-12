@@ -175,7 +175,7 @@ export const defaultSiteContent: SiteContent = {
         factors: [
             {
                 title: 'One-to-one or small group',
-                detail: 'Group lessons share the hour — and the rate — between students.',
+                detail: 'Group lessons share the session — and the rate — between students.',
             },
             {
                 title: 'Online or in person',
@@ -223,7 +223,8 @@ export const defaultSiteContent: SiteContent = {
         'Confidence Building & Study Skills Development',
         'Progress Tracking and Parent Feedback',
         'Foundation, Intermediate & Advanced Learning Support',
-        'GCSE & A-Level Preparation',
+        'GCSE, IGCSE & A-Level Preparation',
+        'University Entrance & Scholarship Coaching',
         'Flexible In-Person and Online Sessions',
     ],
     // Empty until the teacher writes one — an empty section renders nothing.
