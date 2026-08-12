@@ -9,7 +9,8 @@ import { SiteContent } from '../models/siteContent'
 export const defaultSiteContent: SiteContent = {
     siteName: 'AbhiTutor',
     hero: {
-        headline: 'Confident tutoring for Years 7 to 13.',
+        // The \n is the phone break point; desktop reads it as a space.
+        headline: 'Confident tutoring for\nYears 7 to 13.',
         subhead: 'One-to-one or small-group lessons in maths and the sciences, from KS3 through GCSE to A-level — in person or online, matched to your child’s exam board and built around their school week.',
         // Blank by default — the page hides the line until the teacher
         // publishes one via the site editor.
@@ -197,6 +198,8 @@ export const defaultSiteContent: SiteContent = {
     ],
     // The subject cards' third tag label — renameable by the owner.
     modesLabel: 'Delivery',
+    // {year} renders live in the view, so the pill never rots.
+    mastheadPill: 'Enrolling now • {year}',
     // The phone tab bar (REQ-049): three flat slots + the raised
     // spotlight; 'menu' is always the fifth tab.
     mobileNav: {
