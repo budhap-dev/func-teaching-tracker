@@ -12,6 +12,13 @@ on:
     branches: [main]
   workflow_dispatch: # = promote current main to prod
 
+# Deploys must land in commit order. A Dependabot merge burst once ran four
+# deploys concurrently and an older build finished last, leaving dev serving
+# stale code under green runs (2026-08-10). Queue them instead.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 # id-token: OIDC deploy login · contents: checkout.
 permissions:
   id-token: write
