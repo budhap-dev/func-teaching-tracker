@@ -200,6 +200,8 @@ export const defaultSiteContent: SiteContent = {
     modesLabel: 'Delivery',
     // {year} renders live in the view, so the pill never rots.
     mastheadPill: 'Enrolling now • {year}',
+    // Blank until the owner publishes it (REQ-043).
+    areaServed: '',
     // The phone tab bar (REQ-049): three flat slots + the raised
     // spotlight; 'menu' is always the fifth tab.
     mobileNav: {

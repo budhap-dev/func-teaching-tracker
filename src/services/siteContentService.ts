@@ -133,6 +133,7 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         // ?? not ||: an owner-blanked pill stays hidden; only a missing
         // field (older document) takes the default.
         mastheadPill: stored.mastheadPill ?? defaultSiteContent.mastheadPill,
+        areaServed: stored.areaServed ?? defaultSiteContent.areaServed,
         mobileNav: stored.mobileNav ?? defaultSiteContent.mobileNav,
         mobileNavTeacher:
             stored.mobileNavTeacher ?? defaultSiteContent.mobileNavTeacher,
@@ -266,6 +267,7 @@ export const updateSiteContent = async (
             .filter((line) => line.length > 0),
         modesLabel: clean(input.modesLabel) || 'Delivery',
         mastheadPill: clean(input.mastheadPill),
+        areaServed: clean(input.areaServed),
         mobileNav: sanitiseNav(input.mobileNav, MOBILE_NAV_KEYS, 'enquire'),
         mobileNavTeacher: sanitiseNav(
             input.mobileNavTeacher,
@@ -618,6 +620,13 @@ export const validateSiteContentInput = (
         input.mastheadPill.trim().length > MAX_NAME
     ) {
         return `mastheadPill must be a string of ${MAX_NAME} characters or fewer (may be empty).`
+    }
+
+    if (
+        !isString(input.areaServed) ||
+        input.areaServed.trim().length > MAX_NAME
+    ) {
+        return `areaServed must be a string of ${MAX_NAME} characters or fewer (may be empty).`
     }
 
     const mobileNav = input.mobileNav as

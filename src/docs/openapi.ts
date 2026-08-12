@@ -664,6 +664,12 @@ export const openApiDocument = {
                         description:
                             'The masthead pill copy; {year} renders as the current year in the view. Empty hides the pill.',
                     },
+                    areaServed: {
+                        type: 'string',
+                        maxLength: 60,
+                        description:
+                            "Where the tutoring is offered, e.g. \"Leeds\" - published as the business's area served in the public site's structured data (REQ-043). Empty omits the claim.",
+                    },
                     mobileNav: {
                         type: 'object',
                         description:
