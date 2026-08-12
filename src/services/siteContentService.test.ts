@@ -264,9 +264,39 @@ describe('updateSiteContent', () => {
         )
         expect(published.subjects[0]).toEqual({ name: 'Maths' })
     })
+
+    it('masthead pill: sanitised on write, blank stays blank, missing takes the default', async () => {
+        const published = await updateSiteContent(
+            input({ mastheadPill: '  Enrolling <b>now</b> • {year}  ' })
+        )
+        expect(published.mastheadPill).toBe('Enrolling now • {year}')
+
+        // The owner blanking the pill is a choice — reads keep it hidden.
+        await updateSiteContent(input({ mastheadPill: '' }))
+        expect((await getSiteContent()).mastheadPill).toBe('')
+
+        // Only a pre-pill document (no field at all) takes the default.
+        const { mastheadPill: _pill, ...older } = input()
+        fake.content = older as never
+        expect((await getSiteContent()).mastheadPill).toBe(
+            defaultSiteContent.mastheadPill
+        )
+    })
 })
 
 describe('validateSiteContentInput', () => {
+    it('rejects an over-long or non-string masthead pill, allows empty', () => {
+        expect(
+            validateSiteContentInput(input({ mastheadPill: 'x'.repeat(61) }))
+        ).toMatch(/mastheadPill/)
+        expect(
+            validateSiteContentInput(input({ mastheadPill: 7 as never }))
+        ).toMatch(/mastheadPill/)
+        expect(
+            validateSiteContentInput(input({ mastheadPill: '' }))
+        ).toBeUndefined()
+    })
+
     it.each([
         [undefined, 'must be a site-content object'],
         [input({ siteName: ' ' }), 'siteName is required'],

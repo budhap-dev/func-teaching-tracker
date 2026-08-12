@@ -658,6 +658,12 @@ export const openApiDocument = {
                         description:
                             'The subject cards\' third tag label — "Delivery" unless renamed (e.g. "Experience").',
                     },
+                    mastheadPill: {
+                        type: 'string',
+                        maxLength: 60,
+                        description:
+                            'The masthead pill copy; {year} renders as the current year in the view. Empty hides the pill.',
+                    },
                     mobileNav: {
                         type: 'object',
                         description:
