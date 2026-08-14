@@ -227,6 +227,18 @@ export const defaultSiteContent: SiteContent = {
         'University Entrance & Scholarship Coaching',
         'Flexible In-Person and Online Sessions',
     ],
+    // The Home page's own wording (2026-08-14) — the copy the view used
+    // to hard-code, now the owner's to change. The arrow on the explore
+    // link stays the view's; only the words live here.
+    home: {
+        metaTitle: 'AbhiTutor — Where confidence takes off.',
+        metaDescription:
+            'Personal tutoring in maths and the sciences for Years 7–13, online or in person. Matched to your exam board, planned around the school week.',
+        ctaLabel: 'Request a free assessment',
+        exploreLabel: 'Explore subjects',
+        highlightsHeading: 'Why AbhiTutor',
+        journeyHeading: 'How it works',
+    },
     // Empty until the teacher writes one — an empty section renders nothing.
     freeform: { heading: '', markdown: '' },
     sectionOrder: [

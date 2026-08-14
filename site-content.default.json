@@ -112,6 +112,14 @@
     "Exam and assessment preparation",
     "Proven results"
   ],
+  "home": {
+    "ctaLabel": "Request a free assessment",
+    "exploreLabel": "Explore subjects",
+    "highlightsHeading": "Why AbhiTutor",
+    "journeyHeading": "How it works",
+    "metaDescription": "Personal tutoring in maths and the sciences for Years 7–13, online or in person. Matched to your exam board, planned around the school week.",
+    "metaTitle": "AbhiTutor — Where confidence takes off."
+  },
   "journey": [
     {
       "detail": "Tell me the subject, year and what your child wants to get out of tutoring.",
