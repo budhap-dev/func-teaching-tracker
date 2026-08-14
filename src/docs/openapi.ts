@@ -670,6 +670,33 @@ export const openApiDocument = {
                         description:
                             "Where the tutoring is offered, e.g. \"Leeds\" - published as the business's area served in the public site's structured data (REQ-043). Empty omits the claim.",
                     },
+                    home: {
+                        type: 'object',
+                        description:
+                            "The Home page's own wording: headings, button labels and the search-result title/description. Any field may be empty - the view falls back to the shipped wording, so a blank never renders as an empty heading or a nameless button.",
+                        properties: {
+                            metaTitle: { type: 'string', maxLength: 60 },
+                            metaDescription: {
+                                type: 'string',
+                                maxLength: 200,
+                            },
+                            ctaLabel: { type: 'string', maxLength: 60 },
+                            exploreLabel: { type: 'string', maxLength: 60 },
+                            highlightsHeading: {
+                                type: 'string',
+                                maxLength: 60,
+                            },
+                            journeyHeading: { type: 'string', maxLength: 60 },
+                        },
+                        required: [
+                            'metaTitle',
+                            'metaDescription',
+                            'ctaLabel',
+                            'exploreLabel',
+                            'highlightsHeading',
+                            'journeyHeading',
+                        ],
+                    },
                     mobileNav: {
                         type: 'object',
                         description:

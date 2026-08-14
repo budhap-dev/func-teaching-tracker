@@ -282,6 +282,38 @@ describe('updateSiteContent', () => {
             defaultSiteContent.mastheadPill
         )
     })
+
+    it('home copy: sanitised on write, blanks kept, missing lines take the default', async () => {
+        const published = await updateSiteContent(
+            input({
+                home: {
+                    ...defaultSiteContent.home,
+                    ctaLabel: '  Book a <b>free</b> chat  ',
+                    journeyHeading: '',
+                },
+            })
+        )
+        expect(published.home.ctaLabel).toBe('Book a free chat')
+        // Blank travels: the view, not the API, supplies the fallback.
+        expect(published.home.journeyHeading).toBe('')
+
+        // A document published before a line existed keeps the shipped
+        // wording for that line and its own for the rest.
+        fake.content = {
+            ...input(),
+            home: { ctaLabel: 'Start here' },
+        } as never
+        const older = await getSiteContent()
+        expect(older.home.ctaLabel).toBe('Start here')
+        expect(older.home.highlightsHeading).toBe(
+            defaultSiteContent.home.highlightsHeading
+        )
+
+        // A pre-home document takes the whole block.
+        const { home: _home, ...oldest } = input()
+        fake.content = oldest as never
+        expect((await getSiteContent()).home).toEqual(defaultSiteContent.home)
+    })
 })
 
 describe('validateSiteContentInput', () => {
@@ -294,6 +326,55 @@ describe('validateSiteContentInput', () => {
         ).toMatch(/areaServed/)
         expect(
             validateSiteContentInput(input({ areaServed: '' }))
+        ).toBeUndefined()
+    })
+
+    it('rejects home copy that is missing, mistyped or over-long; allows empty', () => {
+        expect(validateSiteContentInput(input({ home: undefined }))).toMatch(
+            /home must be an object/
+        )
+        expect(
+            validateSiteContentInput(
+                input({
+                    home: { ...defaultSiteContent.home, ctaLabel: 7 },
+                })
+            )
+        ).toMatch(/home\.ctaLabel/)
+        // The description is a search snippet, so it gets the longer cap.
+        expect(
+            validateSiteContentInput(
+                input({
+                    home: {
+                        ...defaultSiteContent.home,
+                        metaDescription: 'x'.repeat(201),
+                    },
+                })
+            )
+        ).toMatch(/home\.metaDescription/)
+        expect(
+            validateSiteContentInput(
+                input({
+                    home: {
+                        ...defaultSiteContent.home,
+                        metaTitle: 'x'.repeat(61),
+                    },
+                })
+            )
+        ).toMatch(/home\.metaTitle/)
+        // Every line may be cleared — the view falls back.
+        expect(
+            validateSiteContentInput(
+                input({
+                    home: {
+                        metaTitle: '',
+                        metaDescription: '',
+                        ctaLabel: '',
+                        exploreLabel: '',
+                        highlightsHeading: '',
+                        journeyHeading: '',
+                    },
+                })
+            )
         ).toBeUndefined()
     })
 

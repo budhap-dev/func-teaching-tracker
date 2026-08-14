@@ -134,6 +134,29 @@ export interface FaqItem {
     answer: string
 }
 
+/**
+ * The Home page's own wording (2026-08-14). Headings, button labels and the
+ * search-result title used to be literals in the view; they are the owner's
+ * copy, so they belong in the published document like every other line.
+ *
+ * Every field may be blank: the view falls back to the shipped wording, so
+ * an emptied heading can never render as a blank line or a nameless button.
+ */
+export interface HomeCopy {
+    /** The browser/search-result title, e.g. "AbhiTutor - Where confidence takes off." */
+    metaTitle: string
+    /** The search-result description under the title. */
+    metaDescription: string
+    /** The hero band's primary button, e.g. "Request a free assessment". */
+    ctaLabel: string
+    /** The quieter link beside it, e.g. "Explore subjects". */
+    exploreLabel: string
+    /** The highlight tiles' card heading, e.g. "Why AbhiTutor". */
+    highlightsHeading: string
+    /** The journey card's heading, e.g. "How it works". */
+    journeyHeading: string
+}
+
 /** The reorderable page sections, in their canonical order. */
 export const sectionKeys = [
     'hero',
@@ -180,6 +203,9 @@ export interface SiteContent {
         teacher work-screen keys. Public in the document but carries
         nothing sensitive (page ids only). */
     mobileNavTeacher: { items: string[]; spotlight: string }
+    /** The Home page's headings, button labels and search-result copy
+        (2026-08-14). Blank fields fall back to the shipped wording. */
+    home: HomeCopy
     freeform: FreeformSection
     /** Every section key exactly once — the order the public page renders. */
     sectionOrder: SectionKey[]

@@ -137,6 +137,10 @@ export const getSiteContent = async (): Promise<SiteContent> => {
         mobileNav: stored.mobileNav ?? defaultSiteContent.mobileNav,
         mobileNavTeacher:
             stored.mobileNavTeacher ?? defaultSiteContent.mobileNavTeacher,
+        // Field-by-field, not whole-object: a document published before
+        // one of these lines existed keeps the shipped wording for it and
+        // its own for the rest.
+        home: { ...defaultSiteContent.home, ...(stored.home ?? {}) },
         sectionOrder: [
             ...stored.sectionOrder,
             ...sectionKeys.filter(
@@ -268,6 +272,17 @@ export const updateSiteContent = async (
         modesLabel: clean(input.modesLabel) || 'Delivery',
         mastheadPill: clean(input.mastheadPill),
         areaServed: clean(input.areaServed),
+        // A blanked line is kept blank: the view falls back to the shipped
+        // wording, so the owner clears a field to mean "use the default",
+        // not to leave an empty heading behind.
+        home: {
+            metaTitle: clean(input.home.metaTitle),
+            metaDescription: clean(input.home.metaDescription),
+            ctaLabel: clean(input.home.ctaLabel),
+            exploreLabel: clean(input.home.exploreLabel),
+            highlightsHeading: clean(input.home.highlightsHeading),
+            journeyHeading: clean(input.home.journeyHeading),
+        },
         mobileNav: sanitiseNav(input.mobileNav, MOBILE_NAV_KEYS, 'enquire'),
         mobileNavTeacher: sanitiseNav(
             input.mobileNavTeacher,
@@ -627,6 +642,26 @@ export const validateSiteContentInput = (
         input.areaServed.trim().length > MAX_NAME
     ) {
         return `areaServed must be a string of ${MAX_NAME} characters or fewer (may be empty).`
+    }
+
+    const home = input.home as Record<string, unknown> | undefined
+    if (!home || typeof home !== 'object') {
+        return 'home must be an object of Home page copy.'
+    }
+    // The description is the long one — a search snippet, not a heading.
+    const homeCaps: [string, number][] = [
+        ['metaTitle', MAX_NAME],
+        ['metaDescription', MAX_LINE],
+        ['ctaLabel', MAX_NAME],
+        ['exploreLabel', MAX_NAME],
+        ['highlightsHeading', MAX_NAME],
+        ['journeyHeading', MAX_NAME],
+    ]
+    for (const [field, cap] of homeCaps) {
+        const value = home[field]
+        if (!isString(value) || value.trim().length > cap) {
+            return `home.${field} must be a string of ${cap} characters or fewer (may be empty).`
+        }
     }
 
     const mobileNav = input.mobileNav as
