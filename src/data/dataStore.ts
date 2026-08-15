@@ -3,6 +3,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { PageVisit } from '../models/pageVisit'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 
@@ -82,6 +83,12 @@ export interface DataStore {
     deleteTestimonial(id: number): Promise<void>
     /** Reserves the next numeric testimonial id. */
     nextTestimonialId(): Promise<number>
+
+    // --- Page visits (REQ-058) ---
+    /** Appends one counted visit. Rows carry no personal data. */
+    putPageVisit(visit: PageVisit): Promise<void>
+    /** Every visit on or after `fromDate` (`YYYY-MM-DD`), for the daily roll-up. */
+    listPageVisits(fromDate: string): Promise<PageVisit[]>
 
     // --- Contact (REQ-006/008) ---
     /** The single public contact record; empty fields mean "not offered". */

@@ -876,6 +876,57 @@ export const openApiDocument = {
                 type: 'string',
                 enum: ['New', 'Contacted', 'Converted'],
             },
+            PageVisitInput: {
+                type: 'object',
+                description:
+                    'One counted visit. Not personal data: the id is random, lives in the browser\'s memory and is never written to the visitor\'s device (REQ-058).',
+                properties: {
+                    visitId: {
+                        type: 'string',
+                        maxLength: 64,
+                        pattern: '^[A-Za-z0-9_-]+$',
+                        description: 'Random per-tab id. Opaque — never linked to anything.',
+                    },
+                    page: {
+                        type: 'string',
+                        enum: [
+                            'home',
+                            'offerings',
+                            'pricing',
+                            'enquire',
+                            'about',
+                            'reviews',
+                            'faq',
+                            'contact',
+                            'privacy',
+                        ],
+                    },
+                },
+                required: ['visitId', 'page'],
+            },
+            DailyVisits: {
+                type: 'object',
+                properties: {
+                    date: { type: 'string', example: '2026-08-15' },
+                    visits: {
+                        type: 'integer',
+                        description: 'Distinct visits that day, across every page.',
+                    },
+                    pages: {
+                        type: 'array',
+                        description: 'Busiest page first; pages with none are omitted.',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                page: { type: 'string' },
+                                visits: { type: 'integer' },
+                            },
+                            required: ['page', 'visits'],
+                        },
+                    },
+                },
+                required: ['date', 'visits', 'pages'],
+            },
             LeadInput: {
                 type: 'object',
                 description:
@@ -1807,6 +1858,76 @@ export const openApiDocument = {
                     },
                     '400': { description: 'Validation error.' },
                     '401': { description: 'Missing/invalid token.' },
+                },
+            },
+        },
+        '/events': {
+            post: {
+                tags: ['Events'],
+                summary: 'Count a visit to a public page (public)',
+                description:
+                    'No auth — visitors are not signed in. Carries no personal data: a random per-tab id the browser never stores, and a page name from a closed list. No IP, user agent or referrer is recorded (REQ-058).',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/PageVisitInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '204': { description: 'Counted.' },
+                    '400': {
+                        description:
+                            'Unknown page key, or a visit id that is not id-shaped.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Error',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        '/events/daily': {
+            get: {
+                tags: ['Events'],
+                summary: 'Visits per day, per page (teacher)',
+                description:
+                    'Distinct visits each day and how many reached each page, newest day first. Days with no visits are omitted rather than invented.',
+                parameters: [
+                    {
+                        name: 'days',
+                        in: 'query',
+                        required: false,
+                        schema: {
+                            type: 'integer',
+                            minimum: 1,
+                            maximum: 365,
+                            default: 30,
+                        },
+                        description: 'How far back to look, including today.',
+                    },
+                ],
+                responses: {
+                    '200': {
+                        description: 'Newest day first.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/DailyVisits',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '401': { description: 'Not signed in.' },
                 },
             },
         },

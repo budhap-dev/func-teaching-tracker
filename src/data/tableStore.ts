@@ -5,6 +5,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { PageVisit } from '../models/pageVisit'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -78,6 +79,7 @@ export const TABLE_NAMES = [
     'sitecontent',
     'contact',
     'counters',
+    'pageviews',
 ] as const
 
 const pad = (id: number, width: number): string =>
@@ -327,6 +329,7 @@ const fromContactRow = (e: Row): Contact => ({
 // --- The adapter --------------------------------------------------------------
 
 export class TableStore implements DataStore {
+    private pageVisits = tableClientFor('pageviews')
     private students = tableClientFor('students')
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
@@ -529,6 +532,40 @@ export class TableStore implements DataStore {
 
     // --- Leads --- (create-on-first-use, like testimonials: the table may
     // not exist yet in an environment provisioned before REQ-018.)
+    // --- Page visits (REQ-058) ---
+    // Partitioned by date, so a day's roll-up reads one partition and a
+    // purge deletes whole days. The row key carries the visit and page, so
+    // the same tab counting the same page twice overwrites rather than
+    // inflating - "reached this page" is the question, not "how often".
+    async putPageVisit(visit: PageVisit): Promise<void> {
+        await ensureTable(this.pageVisits)
+        await this.pageVisits.upsertEntity(
+            {
+                partitionKey: visit.date,
+                rowKey: `${visit.visitId}_${visit.page}`,
+                visitId: visit.visitId,
+                page: visit.page,
+                at: visit.at,
+            },
+            'Replace'
+        )
+    }
+
+    async listPageVisits(fromDate: string): Promise<PageVisit[]> {
+        await ensureTable(this.pageVisits)
+        const rows = await collect(
+            this.pageVisits.listEntities<Row>({
+                queryOptions: { filter: odata`PartitionKey ge ${fromDate}` },
+            })
+        )
+        return rows.map((e) => ({
+            date: e.partitionKey,
+            visitId: e.visitId as string,
+            page: e.page as PageVisit['page'],
+            at: e.at as string,
+        }))
+    }
+
     async listLeads(): Promise<Lead[]> {
         await ensureTable(this.leads)
         const rows = await collect(
