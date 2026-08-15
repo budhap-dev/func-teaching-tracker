@@ -3,6 +3,7 @@ import { ScheduledSession } from '../models/session'
 import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
+import { PageVisit } from '../models/pageVisit'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -139,6 +140,17 @@ export class MemoryStore implements DataStore {
 
     async putSiteContent(content: SiteContent): Promise<void> {
         this.siteContent = content
+    }
+
+    // --- Page visits (REQ-058) ---
+    private pageVisits: PageVisit[] = []
+
+    async putPageVisit(visit: PageVisit): Promise<void> {
+        this.pageVisits.push(visit)
+    }
+
+    async listPageVisits(fromDate: string): Promise<PageVisit[]> {
+        return this.pageVisits.filter((visit) => visit.date >= fromDate)
     }
 
     // --- Leads ---
