@@ -4,6 +4,7 @@ import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
+import { Reminder } from '../models/reminder'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 
@@ -83,6 +84,16 @@ export interface DataStore {
     deleteTestimonial(id: number): Promise<void>
     /** Reserves the next numeric testimonial id. */
     nextTestimonialId(): Promise<number>
+
+    // --- Reminders (REQ-057) ---
+    /** The teacher's own notes-to-self, unordered. */
+    listReminders(): Promise<Reminder[]>
+    getReminder(id: number): Promise<Reminder | undefined>
+    /** Creates or replaces a reminder by id. */
+    putReminder(reminder: Reminder): Promise<void>
+    deleteReminder(id: number): Promise<void>
+    /** Reserves the next numeric reminder id. */
+    nextReminderId(): Promise<number>
 
     // --- Page visits (REQ-058) ---
     /** Appends one counted visit. Rows carry no personal data. */

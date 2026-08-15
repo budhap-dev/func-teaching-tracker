@@ -6,6 +6,7 @@ import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
+import { Reminder } from '../models/reminder'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -30,6 +31,7 @@ const SESSION_PK = 'session'
 const SETTLEMENT_PK = 'settlement'
 const TESTIMONIAL_PK = 'testimonial'
 const LEAD_PK = 'lead'
+const REMINDER_PK = 'reminder'
 const SITECONTENT_PK = 'sitecontent'
 const SITECONTENT_ROW = 'sitecontent'
 const CONTACT_PK = 'contact'
@@ -80,6 +82,7 @@ export const TABLE_NAMES = [
     'contact',
     'counters',
     'pageviews',
+    'reminders',
 ] as const
 
 const pad = (id: number, width: number): string =>
@@ -290,6 +293,13 @@ const toLeadRow = (l: Lead): Row => ({
     submittedOn: l.submittedOn,
 })
 
+const fromReminderRow = (e: Row): Reminder => ({
+    id: e.id as number,
+    date: e.date as string,
+    ...(e.time ? { time: e.time as string } : {}),
+    text: e.text as string,
+})
+
 const fromLeadRow = (e: Row): Lead => ({
     id: e.id as number,
     parentName: e.parentName as string,
@@ -330,6 +340,7 @@ const fromContactRow = (e: Row): Contact => ({
 
 export class TableStore implements DataStore {
     private pageVisits = tableClientFor('pageviews')
+    private reminders = tableClientFor('reminders')
     private students = tableClientFor('students')
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
@@ -532,6 +543,65 @@ export class TableStore implements DataStore {
 
     // --- Leads --- (create-on-first-use, like testimonials: the table may
     // not exist yet in an environment provisioned before REQ-018.)
+    // --- Reminders (REQ-057) ---
+    async listReminders(): Promise<Reminder[]> {
+        await ensureTable(this.reminders)
+        const rows = await collect(
+            this.reminders.listEntities<Row>({
+                queryOptions: { filter: odata`PartitionKey eq ${REMINDER_PK}` },
+            })
+        )
+        return rows.map(fromReminderRow)
+    }
+
+    async getReminder(id: number): Promise<Reminder | undefined> {
+        await ensureTable(this.reminders)
+        try {
+            const row = await this.reminders.getEntity<Row>(
+                REMINDER_PK,
+                pad(id, 6)
+            )
+            return fromReminderRow(row)
+        } catch (error) {
+            if (notFound(error)) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
+    async putReminder(reminder: Reminder): Promise<void> {
+        await ensureTable(this.reminders)
+        await this.reminders.upsertEntity(
+            {
+                partitionKey: REMINDER_PK,
+                rowKey: pad(reminder.id, 6),
+                id: reminder.id,
+                date: reminder.date,
+                // Written only when set: an absent time is not "00:00".
+                ...(reminder.time ? { time: reminder.time } : {}),
+                text: reminder.text,
+            },
+            'Replace'
+        )
+    }
+
+    async deleteReminder(id: number): Promise<void> {
+        await ensureTable(this.reminders)
+        try {
+            await this.reminders.deleteEntity(REMINDER_PK, pad(id, 6))
+        } catch (error) {
+            if (!notFound(error)) {
+                throw error
+            }
+        }
+    }
+
+    async nextReminderId(): Promise<number> {
+        const [id] = await this.reserveIds('reminder', 1)
+        return id
+    }
+
     // --- Page visits (REQ-058) ---
     // Partitioned by date, so a day's roll-up reads one partition and a
     // purge deletes whole days. The row key carries the visit and page, so
@@ -696,7 +766,7 @@ export class TableStore implements DataStore {
      * only place that pays for concurrency control.
      */
     private async reserveIds(
-        name: 'student' | 'session' | 'testimonial' | 'lead',
+        name: 'student' | 'session' | 'testimonial' | 'lead' | 'reminder',
         count: number
     ): Promise<number[]> {
         for (let attempt = 0; attempt < 8; attempt += 1) {
