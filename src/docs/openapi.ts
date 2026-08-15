@@ -876,6 +876,32 @@ export const openApiDocument = {
                 type: 'string',
                 enum: ['New', 'Contacted', 'Converted'],
             },
+            Reminder: {
+                type: 'object',
+                description:
+                    "The teacher's own note-to-self. It books nothing, bills nothing and belongs to no student (REQ-057).",
+                properties: {
+                    id: { type: 'integer' },
+                    date: { type: 'string', example: '2026-08-20' },
+                    time: {
+                        type: 'string',
+                        example: '16:00',
+                        description:
+                            'Absent when the reminder belongs to the whole day — never 00:00 standing in for none.',
+                    },
+                    text: { type: 'string', maxLength: 500 },
+                },
+                required: ['id', 'date', 'text'],
+            },
+            ReminderInput: {
+                type: 'object',
+                properties: {
+                    date: { type: 'string', example: '2026-08-20' },
+                    time: { type: 'string', example: '16:00' },
+                    text: { type: 'string', maxLength: 500 },
+                },
+                required: ['date', 'text'],
+            },
             PageVisitInput: {
                 type: 'object',
                 description:
@@ -1858,6 +1884,115 @@ export const openApiDocument = {
                     },
                     '400': { description: 'Validation error.' },
                     '401': { description: 'Missing/invalid token.' },
+                },
+            },
+        },
+        '/reminders': {
+            get: {
+                tags: ['Reminders'],
+                summary: "The teacher's notes-to-self (teacher)",
+                description:
+                    'Ordered by day, then by time, with untimed reminders leading their day. Private on every verb — a reminder may name a family (REQ-057).',
+                responses: {
+                    '200': {
+                        description: 'Reminders in reading order.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/Reminder',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '401': { description: 'Not signed in.' },
+                },
+            },
+            post: {
+                tags: ['Reminders'],
+                summary: 'Write a reminder (teacher)',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/ReminderInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'Created.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Reminder',
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Validation error.' },
+                    '401': { description: 'Not signed in.' },
+                },
+            },
+        },
+        '/reminders/{id}': {
+            put: {
+                tags: ['Reminders'],
+                summary: 'Change a reminder (teacher)',
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/ReminderInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The reminder as stored.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Reminder',
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Validation error.' },
+                    '401': { description: 'Not signed in.' },
+                    '404': { description: 'No such reminder.' },
+                },
+            },
+            delete: {
+                tags: ['Reminders'],
+                summary: 'Forget a reminder (teacher)',
+                description:
+                    'Idempotent — deleting one that is already gone answers 204, so a double tap on a phone is not an error.',
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                responses: {
+                    '204': { description: 'Gone.' },
+                    '401': { description: 'Not signed in.' },
                 },
             },
         },

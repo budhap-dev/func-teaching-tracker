@@ -4,6 +4,7 @@ import { PaymentSettlement } from '../models/payment'
 import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
+import { Reminder } from '../models/reminder'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -140,6 +141,39 @@ export class MemoryStore implements DataStore {
 
     async putSiteContent(content: SiteContent): Promise<void> {
         this.siteContent = content
+    }
+
+    // --- Reminders (REQ-057) ---
+    private reminders: Reminder[] = []
+    private nextReminder = 1
+
+    async listReminders(): Promise<Reminder[]> {
+        return this.reminders
+    }
+
+    async getReminder(id: number): Promise<Reminder | undefined> {
+        return this.reminders.find((reminder) => reminder.id === id)
+    }
+
+    async putReminder(reminder: Reminder): Promise<void> {
+        const index = this.reminders.findIndex(
+            (item) => item.id === reminder.id
+        )
+        if (index >= 0) {
+            this.reminders[index] = reminder
+        } else {
+            this.reminders.push(reminder)
+        }
+    }
+
+    async deleteReminder(id: number): Promise<void> {
+        this.reminders = this.reminders.filter(
+            (reminder) => reminder.id !== id
+        )
+    }
+
+    async nextReminderId(): Promise<number> {
+        return this.nextReminder++
     }
 
     // --- Page visits (REQ-058) ---
