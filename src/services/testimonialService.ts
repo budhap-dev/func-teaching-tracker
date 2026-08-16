@@ -18,11 +18,12 @@ const MAX_SUBJECT = 60
 const MAX_YEAR = 10
 
 /**
- * How many reviews may be featured on Home at once (REQ-059). The Home strip
- * shows three, so the cap is three: without it the teacher could tick ten and
- * the page would silently pick for them.
+ * How many reviews may be featured on Home at once (REQ-059, raised from three
+ * to five on 2026-08-16). The Home strip shows exactly this many, so the cap
+ * and the strip are the same number: without a cap the teacher could tick ten
+ * and the page would silently pick for them.
  */
-export const MAX_FEATURED = 3
+export const MAX_FEATURED = 5
 
 const today = (): string => new Date().toISOString().slice(0, 10)
 
