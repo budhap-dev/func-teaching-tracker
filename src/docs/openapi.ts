@@ -1015,6 +1015,11 @@ export const openApiDocument = {
                         description:
                             'A profanity screen matched the name/quote. Highlights it for the teacher; does not change visibility.',
                     },
+                    featured: {
+                        type: 'boolean',
+                        description:
+                            'Chosen by the teacher to show on the public Home page. At most three at once, and only on Approved reviews.',
+                    },
                     submittedOn: {
                         type: 'string',
                         format: 'date',
@@ -1061,14 +1066,19 @@ export const openApiDocument = {
             },
             TestimonialUpdate: {
                 type: 'object',
-                description: 'Moderation. Only Approved or Rejected are settable.',
+                description:
+                    'Moderation and Home selection. Only Approved or Rejected are settable as a status; `featured` chooses the review for the Home page. Send either or both, but not neither.',
                 properties: {
                     status: {
                         type: 'string',
                         enum: ['Approved', 'Rejected'],
                     },
+                    featured: {
+                        type: 'boolean',
+                        description:
+                            'Show this review on Home. Rejected with 400 if three are already chosen, or if the review is not Approved.',
+                    },
                 },
-                required: ['status'],
                 example: { status: 'Approved' },
             },
             ContactAvailability: {
@@ -1776,7 +1786,7 @@ export const openApiDocument = {
         '/testimonials/{id}': {
             put: {
                 tags: ['Testimonials'],
-                summary: 'Approve or reject a review (teacher)',
+                summary: 'Approve, reject, or feature a review on Home (teacher)',
                 operationId: 'updateTestimonial',
                 parameters: [
                     { $ref: '#/components/parameters/TestimonialIdPath' },

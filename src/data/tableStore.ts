@@ -258,6 +258,7 @@ const toTestimonialRow = (t: Testimonial): Row => ({
     quote: t.quote,
     status: t.status,
     ...(t.flagged ? { flagged: true } : {}),
+    ...(t.featured ? { featured: true } : {}),
     submittedOn: t.submittedOn,
     ...(t.moderatedOn ? { moderatedOn: t.moderatedOn } : {}),
 })
@@ -272,6 +273,7 @@ const fromTestimonialRow = (e: Row): Testimonial => ({
     quote: e.quote as string,
     status: e.status as Testimonial['status'],
     ...(e.flagged ? { flagged: true } : {}),
+    ...(e.featured ? { featured: true } : {}),
     submittedOn: e.submittedOn as string,
     ...(e.moderatedOn ? { moderatedOn: e.moderatedOn as string } : {}),
 })

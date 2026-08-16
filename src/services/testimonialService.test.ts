@@ -35,6 +35,8 @@ import {
     deleteTestimonial,
     listApprovedTestimonials,
     listPendingTestimonials,
+    MAX_FEATURED,
+    setTestimonialFeatured,
     setTestimonialStatus,
     validateTestimonialInput,
     validateTestimonialUpdate,
@@ -180,6 +182,96 @@ describe('moderation', () => {
         expect(fake.testimonials).toHaveLength(0)
         expect(await deleteTestimonial(5)).toBe(false)
     })
+
+    // REQ-059 — a review taken down must not keep its place on Home.
+    it('drops a featured review from Home when it stops being approved', async () => {
+        fake.testimonials = [testimonial({ id: 5, featured: true })]
+
+        const updated = await setTestimonialStatus(5, 'Rejected')
+
+        expect(updated!.featured).toBeUndefined()
+        expect(fake.testimonials[0].featured).toBeUndefined()
+    })
+
+    it('leaves a featured review featured when it is re-approved', async () => {
+        fake.testimonials = [testimonial({ id: 5, featured: true })]
+
+        const updated = await setTestimonialStatus(5, 'Approved')
+
+        expect(updated!.featured).toBe(true)
+    })
+})
+
+describe('setTestimonialFeatured', () => {
+    it('ticks and unticks a review, storing nothing when unticked', async () => {
+        fake.testimonials = [testimonial({ id: 5 })]
+
+        const on = await setTestimonialFeatured(5, true)
+        expect((on as Testimonial).featured).toBe(true)
+
+        const off = await setTestimonialFeatured(5, false)
+        expect((off as Testimonial).featured).toBeUndefined()
+        expect(fake.testimonials[0].featured).toBeUndefined()
+    })
+
+    it('refuses an unknown review', async () => {
+        expect(await setTestimonialFeatured(99, true)).toBe('not-found')
+    })
+
+    it('refuses a review that is not approved', async () => {
+        fake.testimonials = [testimonial({ id: 5, status: 'Pending' })]
+
+        expect(await setTestimonialFeatured(5, true)).toBe('not-approved')
+    })
+
+    it(`refuses the review after ${MAX_FEATURED}`, async () => {
+        fake.testimonials = [
+            ...Array.from({ length: MAX_FEATURED }, (_, index) =>
+                testimonial({ id: index + 1, featured: true })
+            ),
+            testimonial({ id: 90 }),
+        ]
+
+        expect(await setTestimonialFeatured(90, true)).toBe('full')
+    })
+
+    it('lets an already-featured review be re-ticked when full', async () => {
+        fake.testimonials = Array.from({ length: MAX_FEATURED }, (_, index) =>
+            testimonial({ id: index + 1, featured: true })
+        )
+
+        const again = await setTestimonialFeatured(1, true)
+
+        expect((again as Testimonial).featured).toBe(true)
+    })
+
+    it('always allows unticking, full or not', async () => {
+        fake.testimonials = Array.from({ length: MAX_FEATURED }, (_, index) =>
+            testimonial({ id: index + 1, featured: true })
+        )
+
+        const off = await setTestimonialFeatured(2, false)
+
+        expect((off as Testimonial).featured).toBeUndefined()
+    })
+
+    // A rejected-but-still-flagged record must not eat one of the three.
+    it('counts only approved reviews toward the cap', async () => {
+        fake.testimonials = [
+            ...Array.from({ length: MAX_FEATURED }, (_, index) =>
+                testimonial({
+                    id: index + 1,
+                    featured: true,
+                    status: 'Rejected',
+                })
+            ),
+            testimonial({ id: 90 }),
+        ]
+
+        expect((await setTestimonialFeatured(90, true)) as Testimonial).toEqual(
+            expect.objectContaining({ id: 90, featured: true })
+        )
+    })
 })
 
 describe('validateTestimonialInput', () => {
@@ -220,5 +312,25 @@ describe('validateTestimonialUpdate', () => {
         expect(validateTestimonialUpdate({ status: 'Rejected' })).toBeUndefined()
         expect(validateTestimonialUpdate({ status: 'Pending' })).toBeTruthy()
         expect(validateTestimonialUpdate(undefined)).toBeTruthy()
+    })
+
+    // REQ-059 — featured may travel alone, with a status, or not at all.
+    it('accepts featured on its own and alongside a status', () => {
+        expect(validateTestimonialUpdate({ featured: true })).toBeUndefined()
+        expect(validateTestimonialUpdate({ featured: false })).toBeUndefined()
+        expect(
+            validateTestimonialUpdate({ status: 'Approved', featured: true })
+        ).toBeUndefined()
+    })
+
+    it('rejects a body with neither field, and a non-boolean featured', () => {
+        expect(validateTestimonialUpdate({})).toContain(
+            'status or featured is required'
+        )
+        expect(
+            validateTestimonialUpdate({
+                featured: 'yes',
+            } as unknown as Parameters<typeof validateTestimonialUpdate>[0])
+        ).toContain('featured must be true or false')
     })
 })
