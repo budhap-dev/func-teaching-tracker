@@ -60,6 +60,13 @@ export interface Testimonial {
      * for a closer look. Absent means nothing was flagged.
      */
     flagged?: boolean
+    /**
+     * Chosen by the teacher to show on the public Home page (REQ-059). At most
+     * MAX_FEATURED reviews carry it, and only Approved ones — moderating a
+     * review to anything else clears it, so a review can never be both hidden
+     * and featured. Absent means not chosen.
+     */
+    featured?: boolean
     /** ISO date, YYYY-MM-DD, when it was submitted. */
     submittedOn: string
     /** ISO date the teacher approved/rejected it; absent while Pending. */
@@ -78,7 +85,12 @@ export interface TestimonialInput {
     website?: string
 }
 
-/** Payload accepted by the teacher moderation endpoint. */
+/**
+ * Payload accepted by the teacher moderation endpoint. Either field may be
+ * sent on its own: `status` moderates the review, `featured` chooses it for
+ * Home (REQ-059). A body carrying neither is rejected.
+ */
 export interface TestimonialUpdate {
     status?: TestimonialStatus
+    featured?: boolean
 }
