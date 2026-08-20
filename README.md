@@ -81,6 +81,12 @@ code — keep it in step with `src/models` and the service validators when they
 change. `openapi.json` also imports straight into Postman, Insomnia, or any
 client generator.
 
+The docs page accepts an optional `?theme=` parameter selecting one of
+Scalar's built-in themes — e.g. `/api/docs?theme=purple`. Available themes:
+`default`, `alternate`, `moon`, `purple`, `solarized`, `bluePlanet`,
+`saturn`, `kepler`, `mars`, `deepSpace`. Unknown values fall back to
+`default`; every theme keeps Scalar's light/dark toggle.
+
 ### Per-environment data
 
 The dataset is selected by the `ENVIRONMENT` app setting (set per environment by
