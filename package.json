@@ -20,16 +20,16 @@
     "dependencies": {
         "@azure/data-tables": "^13.3.2",
         "@azure/functions": "^4.7.0",
-        "@azure/identity": "^4.13.1",
+        "@azure/identity": "^4.13.2",
         "@azure/keyvault-secrets": "^4.11.2",
         "jsonwebtoken": "^9.0.3",
         "jwks-rsa": "^4.1.0"
     },
     "devDependencies": {
         "@types/jsonwebtoken": "^9.0.10",
-        "@types/node": "^26.2.0",
+        "@types/node": "^26.4.0",
         "rimraf": "^6.0.1",
         "typescript": "^7.0.2",
-        "vitest": "^4.1.10"
+        "vitest": "^4.1.11"
     }
 }
