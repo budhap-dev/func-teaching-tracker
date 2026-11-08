@@ -20,7 +20,7 @@
     "dependencies": {
         "@azure/data-tables": "^13.3.2",
         "@azure/functions": "^4.7.0",
-        "@azure/identity": "^4.13.1",
+        "@azure/identity": "^4.14.1",
         "@azure/keyvault-secrets": "^4.11.2",
         "jsonwebtoken": "^9.0.3",
         "jwks-rsa": "^4.1.0"
