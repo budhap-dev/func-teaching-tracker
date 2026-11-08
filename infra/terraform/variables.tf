@@ -37,6 +37,11 @@ variable "environments" {
     # REQ-009: which persistence adapter the app uses. "memory" until the
     # env's tables are provisioned and seeded, then "tables".
     data_store = optional(string, "memory")
+    # REQ-063: class files live in the teacher's own (personal) OneDrive, so
+    # the SPA registration must also sign in personal Microsoft accounts and
+    # may ask for its app folder. Off by default: dev proves it first, and
+    # prod's sign-in stays exactly as it is until the feature ships.
+    onedrive_files = optional(bool, false)
   }))
   default = {
     dev = {
@@ -47,6 +52,8 @@ variable "environments" {
       # Dev enforces sign-in (flipped 2026-07-17); phase 5 flipped to tables.
       auth_enforced = true
       data_store    = "tables"
+      # REQ-063 spike: dev's SPA can reach the signed-in user's OneDrive.
+      onedrive_files = true
     }
     prod = {
       # UK South for data residency: prod holds personal data about children,

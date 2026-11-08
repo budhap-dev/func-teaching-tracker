@@ -77,9 +77,30 @@ resource "azuread_service_principal" "api" {
 # SPA app registration: what MSAL in the browser signs in AS.
 # ---------------------------------------------------------------------------
 
+# REQ-063: Microsoft Graph's delegated scope ids, looked up rather than
+# hard-coded so a typo cannot silently grant the wrong permission.
+data "azuread_application_published_app_ids" "well_known" {}
+
+data "azuread_service_principal" "msgraph" {
+  client_id = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+}
+
 resource "azuread_application" "spa" {
-  display_name     = "${local.base}-spa"
-  sign_in_audience = "AzureADMyOrg"
+  display_name = "${local.base}-spa"
+  # REQ-063: with OneDrive files on, the SPA also signs in personal Microsoft
+  # accounts — the teacher's OneDrive belongs to their outlook.com account,
+  # reached via the /consumers authority. The teacher gate is untouched: the
+  # API registration stays single-tenant and only issues tokens to the
+  # tenant sign-in, which the Key Vault allow-list still checks.
+  sign_in_audience = var.onedrive_files ? "AzureADandPersonalMicrosoftAccount" : "AzureADMyOrg"
+
+  # Entra refuses personal-account audiences on an app still on v1 tokens.
+  dynamic "api" {
+    for_each = var.onedrive_files ? [1] : []
+    content {
+      requested_access_token_version = 2
+    }
+  }
 
   single_page_application {
     # Entra requires a trailing slash on pathless URIs. MSAL must be configured
@@ -94,6 +115,25 @@ resource "azuread_application" "spa" {
     resource_access {
       id   = random_uuid.teacher_scope.result
       type = "Scope"
+    }
+  }
+
+  # REQ-063: the app's own folder in the user's OneDrive (it cannot see the
+  # rest of the drive), plus offline_access so MSAL renews silently. Delegated
+  # only — the backend never touches the drive. The teacher consents once,
+  # the first time they attach a file.
+  dynamic "required_resource_access" {
+    for_each = var.onedrive_files ? [1] : []
+    content {
+      resource_app_id = data.azuread_application_published_app_ids.well_known.result["MicrosoftGraph"]
+      resource_access {
+        id   = data.azuread_service_principal.msgraph.oauth2_permission_scope_ids["Files.ReadWrite.AppFolder"]
+        type = "Scope"
+      }
+      resource_access {
+        id   = data.azuread_service_principal.msgraph.oauth2_permission_scope_ids["offline_access"]
+        type = "Scope"
+      }
     }
   }
 
