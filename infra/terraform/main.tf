@@ -73,6 +73,7 @@ module "auth" {
   tenant_id          = data.azuread_client_config.current.tenant_id
   deployer_object_id = data.azuread_client_config.current.object_id
   teacher_emails     = var.teacher_emails
+  onedrive_files     = each.value.onedrive_files
 
   # The SPA redirects back to the environment's frontend — the same origins
   # CORS already allows. Local `npm start` signs in against dev only.

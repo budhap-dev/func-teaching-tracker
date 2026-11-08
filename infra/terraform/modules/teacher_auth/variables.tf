@@ -28,6 +28,12 @@ variable "spa_redirect_uris" {
   type        = list(string)
 }
 
+variable "onedrive_files" {
+  description = "REQ-063: let the SPA sign in personal Microsoft accounts too and request Files.ReadWrite.AppFolder, so the browser can keep class files in the teacher's own OneDrive. The API registration is unaffected."
+  type        = bool
+  default     = false
+}
+
 variable "teacher_emails" {
   description = "Emails allowed to act as the teacher. Stored comma-separated in the teacher-emails secret; edit the secret later without a deploy."
   type        = list(string)
