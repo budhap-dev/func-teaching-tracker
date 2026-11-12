@@ -1,4 +1,5 @@
 import { dataStore } from '../data/store'
+import { deleteAttachmentsForSessions } from './attachmentService'
 import {
     ScheduledSession,
     SessionInput,
@@ -193,6 +194,9 @@ export const deleteSessionClass = async (
     for (const target of targets) {
         await dataStore.deleteSession(target.id)
     }
+    // The class's file index rows go with it (REQ-063). The browser removes
+    // the files from OneDrive before asking — the API cannot reach the drive.
+    await deleteAttachmentsForSessions(targets.map((target) => target.id))
     return targets.map((target) => target.id)
 }
 

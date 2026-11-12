@@ -45,6 +45,11 @@ export const openApiDocument = {
     tags: [
         { name: 'Students', description: 'Tutored students (REQ-009).' },
         { name: 'Sessions', description: 'Scheduled classes, solo or group.' },
+        {
+            name: 'Attachments',
+            description:
+                "The index of files on classes. The files live in the teacher's OneDrive (REQ-063).",
+        },
         { name: 'Payments', description: 'Monthly bills and settlements.' },
         {
             name: 'Testimonials',
@@ -901,6 +906,82 @@ export const openApiDocument = {
                     text: { type: 'string', maxLength: 500 },
                 },
                 required: ['date', 'text'],
+            },
+            Attachment: {
+                type: 'object',
+                description:
+                    "The index row for one file on one student's class (REQ-063). The bytes live in the teacher's own OneDrive app folder; the browser writes and reads them, and the API never touches them. A group class keeps one copy per attendee, each with its own row. Student, date and subject follow the class.",
+                properties: {
+                    id: { type: 'integer' },
+                    sessionId: { type: 'integer' },
+                    studentId: { type: 'integer' },
+                    studentName: { type: 'string' },
+                    date: { type: 'string', example: '2026-11-12' },
+                    subject: { type: 'string' },
+                    groupId: { type: 'string', example: 'grp-1042' },
+                    fileName: { type: 'string', maxLength: 200 },
+                    contentType: {
+                        type: 'string',
+                        enum: [
+                            'image/jpeg',
+                            'image/png',
+                            'image/webp',
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                        ],
+                    },
+                    kind: {
+                        type: 'string',
+                        enum: ['photo', 'pdf', 'word', 'powerpoint'],
+                    },
+                    sizeBytes: { type: 'integer', maximum: 20971520 },
+                    driveItemId: {
+                        type: 'string',
+                        description:
+                            "OneDrive's id for the item. It survives moves and renames inside the app folder.",
+                    },
+                    caption: {
+                        type: 'string',
+                        maxLength: 300,
+                        description: 'Absent when there is none.',
+                    },
+                    uploadedAt: { type: 'string', format: 'date-time' },
+                },
+                required: [
+                    'id',
+                    'sessionId',
+                    'studentId',
+                    'studentName',
+                    'date',
+                    'subject',
+                    'fileName',
+                    'contentType',
+                    'kind',
+                    'sizeBytes',
+                    'driveItemId',
+                    'uploadedAt',
+                ],
+            },
+            AttachmentInput: {
+                type: 'object',
+                description:
+                    'Sent once OneDrive has accepted the upload. The class supplies the student, date and subject.',
+                properties: {
+                    sessionId: { type: 'integer' },
+                    fileName: { type: 'string', maxLength: 200 },
+                    contentType: { type: 'string', example: 'image/jpeg' },
+                    sizeBytes: { type: 'integer', maximum: 20971520 },
+                    driveItemId: { type: 'string' },
+                    caption: { type: 'string', maxLength: 300 },
+                },
+                required: [
+                    'sessionId',
+                    'fileName',
+                    'contentType',
+                    'sizeBytes',
+                    'driveItemId',
+                ],
             },
             PageVisitInput: {
                 type: 'object',
@@ -1992,6 +2073,185 @@ export const openApiDocument = {
                 summary: 'Forget a reminder (teacher)',
                 description:
                     'Idempotent — deleting one that is already gone answers 204, so a double tap on a phone is not an error.',
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                responses: {
+                    '204': { description: 'Gone.' },
+                    '401': { description: 'Not signed in.' },
+                },
+            },
+        },
+        '/attachments': {
+            get: {
+                tags: ['Attachments'],
+                summary: 'Find files on classes (teacher)',
+                description:
+                    'Newest class first. Every filter is optional and they combine. A malformed filter is refused rather than ignored, so a typo never widens the search (REQ-063).',
+                parameters: [
+                    {
+                        name: 'from',
+                        in: 'query',
+                        schema: { type: 'string', example: '2026-11-01' },
+                        description: 'First class date, inclusive.',
+                    },
+                    {
+                        name: 'to',
+                        in: 'query',
+                        schema: { type: 'string', example: '2026-11-30' },
+                        description: 'Last class date, inclusive.',
+                    },
+                    {
+                        name: 'studentId',
+                        in: 'query',
+                        schema: { type: 'integer' },
+                        description: 'One student.',
+                    },
+                    {
+                        name: 'sessionId',
+                        in: 'query',
+                        schema: { type: 'integer' },
+                        description: 'One class row.',
+                    },
+                    {
+                        name: 'subject',
+                        in: 'query',
+                        schema: { type: 'string' },
+                        description: 'Exact subject, any case.',
+                    },
+                    {
+                        name: 'type',
+                        in: 'query',
+                        schema: {
+                            type: 'string',
+                            enum: ['photo', 'pdf', 'word', 'powerpoint'],
+                        },
+                        description: 'File kind.',
+                    },
+                    {
+                        name: 'q',
+                        in: 'query',
+                        schema: { type: 'string' },
+                        description: 'Text in the file name or caption, any case.',
+                    },
+                ],
+                responses: {
+                    '200': {
+                        description: 'Matching files, newest first.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/components/schemas/Attachment',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'A malformed filter.' },
+                    '401': { description: 'Not signed in.' },
+                },
+            },
+            post: {
+                tags: ['Attachments'],
+                summary: 'Index an uploaded file (teacher)',
+                description:
+                    'Sent only after OneDrive has accepted the upload, so a failed upload leaves no ghost row. A retry for the same class and drive item answers 200 with the row already made.',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                $ref: '#/components/schemas/AttachmentInput',
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '201': {
+                        description: 'Indexed.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Attachment',
+                                },
+                            },
+                        },
+                    },
+                    '200': {
+                        description: 'Already indexed (a retry).',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Attachment',
+                                },
+                            },
+                        },
+                    },
+                    '400': {
+                        description:
+                            'Validation error, a type outside the closed list, over 20MB, or no such class.',
+                    },
+                    '401': { description: 'Not signed in.' },
+                },
+            },
+        },
+        '/attachments/{id}': {
+            patch: {
+                tags: ['Attachments'],
+                summary: "Set or clear a file's caption (teacher)",
+                parameters: [
+                    {
+                        name: 'id',
+                        in: 'path',
+                        required: true,
+                        schema: { type: 'integer' },
+                    },
+                ],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    caption: {
+                                        type: 'string',
+                                        maxLength: 300,
+                                        description: 'Empty clears it.',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    '200': {
+                        description: 'The file as stored.',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/Attachment',
+                                },
+                            },
+                        },
+                    },
+                    '400': { description: 'Validation error.' },
+                    '401': { description: 'Not signed in.' },
+                    '404': { description: 'No such file.' },
+                },
+            },
+            delete: {
+                tags: ['Attachments'],
+                summary: "Forget a file's index row (teacher)",
+                description:
+                    'The browser deletes the OneDrive item first; the API cannot reach the drive. Idempotent.',
                 parameters: [
                     {
                         name: 'id',

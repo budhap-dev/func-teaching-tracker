@@ -7,6 +7,11 @@ import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
 import { Reminder } from '../models/reminder'
+import {
+    Attachment,
+    AttachmentContentType,
+    AttachmentKind,
+} from '../models/attachment'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -32,6 +37,7 @@ const SETTLEMENT_PK = 'settlement'
 const TESTIMONIAL_PK = 'testimonial'
 const LEAD_PK = 'lead'
 const REMINDER_PK = 'reminder'
+const ATTACHMENT_PK = 'attachment'
 const SITECONTENT_PK = 'sitecontent'
 const SITECONTENT_ROW = 'sitecontent'
 const CONTACT_PK = 'contact'
@@ -42,6 +48,7 @@ const STUDENT_WIDTH = 6
 const SESSION_WIDTH = 8
 const TESTIMONIAL_WIDTH = 6
 const LEAD_WIDTH = 6
+const ATTACHMENT_WIDTH = 8
 
 /** The well-known Azurite emulator account key — a documented public constant. */
 const AZURITE_KEY =
@@ -83,6 +90,7 @@ export const TABLE_NAMES = [
     'counters',
     'pageviews',
     'reminders',
+    'attachments',
 ] as const
 
 const pad = (id: number, width: number): string =>
@@ -295,6 +303,43 @@ const toLeadRow = (l: Lead): Row => ({
     submittedOn: l.submittedOn,
 })
 
+const fromAttachmentRow = (e: Row): Attachment => ({
+    id: e.id as number,
+    sessionId: e.sessionId as number,
+    studentId: e.studentId as number,
+    studentName: e.studentName as string,
+    date: e.date as string,
+    subject: e.subject as string,
+    ...(e.groupId ? { groupId: e.groupId as string } : {}),
+    fileName: e.fileName as string,
+    contentType: e.contentType as AttachmentContentType,
+    kind: e.kind as AttachmentKind,
+    sizeBytes: e.sizeBytes as number,
+    driveItemId: e.driveItemId as string,
+    ...(e.caption ? { caption: e.caption as string } : {}),
+    uploadedAt: e.uploadedAt as string,
+})
+
+const toAttachmentRow = (a: Attachment): Row => ({
+    partitionKey: ATTACHMENT_PK,
+    rowKey: pad(a.id, ATTACHMENT_WIDTH),
+    id: a.id,
+    sessionId: a.sessionId,
+    studentId: a.studentId,
+    studentName: a.studentName,
+    date: a.date,
+    subject: a.subject,
+    // Written only when set: absent is not an empty string.
+    ...(a.groupId ? { groupId: a.groupId } : {}),
+    fileName: a.fileName,
+    contentType: a.contentType,
+    kind: a.kind,
+    sizeBytes: a.sizeBytes,
+    driveItemId: a.driveItemId,
+    ...(a.caption ? { caption: a.caption } : {}),
+    uploadedAt: a.uploadedAt,
+})
+
 const fromReminderRow = (e: Row): Reminder => ({
     id: e.id as number,
     date: e.date as string,
@@ -343,6 +388,7 @@ const fromContactRow = (e: Row): Contact => ({
 export class TableStore implements DataStore {
     private pageVisits = tableClientFor('pageviews')
     private reminders = tableClientFor('reminders')
+    private attachments = tableClientFor('attachments')
     private students = tableClientFor('students')
     private sessions = tableClientFor('sessions')
     private settlements = tableClientFor('settlements')
@@ -416,6 +462,26 @@ export class TableStore implements DataStore {
                 SETTLEMENT_PK,
                 row.rowKey as string
             )
+        }
+
+        // File index rows (REQ-063): those filed under the student, and any
+        // whose class was theirs. The table may not exist yet.
+        await ensureTable(this.attachments)
+        const theirClasses = new Set(sessionRows.map((row) => row.id))
+        const attachmentRows = await collect(
+            this.attachments.listEntities<Row>({
+                queryOptions: {
+                    filter: odata`PartitionKey eq ${ATTACHMENT_PK}`,
+                },
+            })
+        )
+        for (const row of attachmentRows) {
+            if (row.studentId === id || theirClasses.has(row.sessionId)) {
+                await this.attachments.deleteEntity(
+                    ATTACHMENT_PK,
+                    row.rowKey as string
+                )
+            }
         }
     }
 
@@ -545,6 +611,62 @@ export class TableStore implements DataStore {
 
     // --- Leads --- (create-on-first-use, like testimonials: the table may
     // not exist yet in an environment provisioned before REQ-018.)
+    // --- Attachments (REQ-063) --- (create-on-first-use: the table is new.)
+    async listAttachments(): Promise<Attachment[]> {
+        await ensureTable(this.attachments)
+        const rows = await collect(
+            this.attachments.listEntities<Row>({
+                queryOptions: {
+                    filter: odata`PartitionKey eq ${ATTACHMENT_PK}`,
+                },
+            })
+        )
+        return rows.map(fromAttachmentRow)
+    }
+
+    async getAttachment(id: number): Promise<Attachment | undefined> {
+        await ensureTable(this.attachments)
+        try {
+            const row = await this.attachments.getEntity<Row>(
+                ATTACHMENT_PK,
+                pad(id, ATTACHMENT_WIDTH)
+            )
+            return fromAttachmentRow(row)
+        } catch (error) {
+            if (notFound(error)) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
+    async putAttachment(attachment: Attachment): Promise<void> {
+        await ensureTable(this.attachments)
+        await this.attachments.upsertEntity(
+            toAttachmentRow(attachment),
+            'Replace'
+        )
+    }
+
+    async deleteAttachment(id: number): Promise<void> {
+        await ensureTable(this.attachments)
+        try {
+            await this.attachments.deleteEntity(
+                ATTACHMENT_PK,
+                pad(id, ATTACHMENT_WIDTH)
+            )
+        } catch (error) {
+            if (!notFound(error)) {
+                throw error
+            }
+        }
+    }
+
+    async nextAttachmentId(): Promise<number> {
+        const [id] = await this.reserveIds('attachment', 1)
+        return id
+    }
+
     // --- Reminders (REQ-057) ---
     async listReminders(): Promise<Reminder[]> {
         await ensureTable(this.reminders)
@@ -768,7 +890,13 @@ export class TableStore implements DataStore {
      * only place that pays for concurrency control.
      */
     private async reserveIds(
-        name: 'student' | 'session' | 'testimonial' | 'lead' | 'reminder',
+        name:
+            | 'student'
+            | 'session'
+            | 'testimonial'
+            | 'lead'
+            | 'reminder'
+            | 'attachment',
         count: number
     ): Promise<number[]> {
         for (let attempt = 0; attempt < 8; attempt += 1) {

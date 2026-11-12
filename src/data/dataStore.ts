@@ -5,6 +5,7 @@ import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
 import { Reminder } from '../models/reminder'
+import { Attachment } from '../models/attachment'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 
@@ -30,8 +31,10 @@ export interface DataStore {
     /** Reserves the next numeric student id. */
     nextStudentId(): Promise<number>
     /**
-     * Erases a student and everything about them — their sessions and
-     * settlements — in one call (GDPR right to erasure, REQ-009 §10).
+     * Erases a student and everything about them — their sessions,
+     * settlements and file index rows (REQ-063) — in one call (GDPR right to
+     * erasure, REQ-009 §10). The files themselves live in the teacher's
+     * OneDrive, which only the browser can reach; it deletes them first.
      */
     deleteStudentCascade(id: number): Promise<void>
 
@@ -84,6 +87,16 @@ export interface DataStore {
     deleteTestimonial(id: number): Promise<void>
     /** Reserves the next numeric testimonial id. */
     nextTestimonialId(): Promise<number>
+
+    // --- Attachments (REQ-063) ---
+    /** The file index, unordered. The bytes live in the teacher's OneDrive. */
+    listAttachments(): Promise<Attachment[]>
+    getAttachment(id: number): Promise<Attachment | undefined>
+    /** Creates or replaces an index row by id. */
+    putAttachment(attachment: Attachment): Promise<void>
+    deleteAttachment(id: number): Promise<void>
+    /** Reserves the next numeric attachment id. */
+    nextAttachmentId(): Promise<number>
 
     // --- Reminders (REQ-057) ---
     /** The teacher's own notes-to-self, unordered. */
