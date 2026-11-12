@@ -28,6 +28,12 @@ variable "spa_redirect_uris" {
   type        = list(string)
 }
 
+variable "spa_display_name" {
+  description = "REQ-063: the SPA registration's display name — OneDrive's app folder and the consent screen show it. Null keeps \"<base>-spa\"."
+  type        = string
+  default     = null
+}
+
 variable "onedrive_files" {
   description = "REQ-063: let the SPA sign in personal Microsoft accounts too and request Files.ReadWrite.AppFolder, so the browser can keep class files in the teacher's own OneDrive. The API registration is unaffected."
   type        = bool

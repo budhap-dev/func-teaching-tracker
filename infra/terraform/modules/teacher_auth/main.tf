@@ -86,7 +86,7 @@ data "azuread_service_principal" "msgraph" {
 }
 
 resource "azuread_application" "spa" {
-  display_name = "${local.base}-spa"
+  display_name = coalesce(var.spa_display_name, "${local.base}-spa")
   # REQ-063: with OneDrive files on, the SPA also signs in personal Microsoft
   # accounts — the teacher's OneDrive belongs to their outlook.com account,
   # reached via the /consumers authority. The teacher gate is untouched: the
