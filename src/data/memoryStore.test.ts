@@ -56,3 +56,36 @@ describe('MemoryStore.deleteStudentCascade', () => {
         expect(await store.getStudent(other.id)).toBeDefined()
     })
 })
+
+describe('MemoryStore.deleteStudentCascade — file index (REQ-063)', () => {
+    it("takes the student's file rows, and rows on their classes, nothing else", async () => {
+        const store = new MemoryStore('dev')
+        const [target, other] = await store.listStudents()
+        const sessions = await store.listSessions()
+        const targetClass = sessions.find((s) => s.studentId === target.id)!
+        const otherClass = sessions.find((s) => s.studentId === other.id)!
+        const row = (id: number, sessionId: number, studentId: number) => ({
+            id,
+            sessionId,
+            studentId,
+            studentName: 'x',
+            date: '2026-11-12',
+            subject: 'Maths',
+            fileName: `f${id}.jpg`,
+            contentType: 'image/jpeg' as const,
+            kind: 'photo' as const,
+            sizeBytes: 1,
+            driveItemId: `ID!${id}`,
+            uploadedAt: '2026-11-12T10:00:00.000Z',
+        })
+        // Filed under the target; on the target's class but a stale student
+        // copy; and another student's file, which must survive.
+        await store.putAttachment(row(1, targetClass.id, target.id))
+        await store.putAttachment(row(2, targetClass.id, 999))
+        await store.putAttachment(row(3, otherClass.id, other.id))
+
+        await store.deleteStudentCascade(target.id)
+
+        expect((await store.listAttachments()).map((a) => a.id)).toEqual([3])
+    })
+})

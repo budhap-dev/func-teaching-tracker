@@ -5,6 +5,7 @@ import { Testimonial } from '../models/testimonial'
 import { Lead } from '../models/lead'
 import { PageVisit } from '../models/pageVisit'
 import { Reminder } from '../models/reminder'
+import { Attachment } from '../models/attachment'
 import { SiteContent } from '../models/siteContent'
 import { Contact } from '../models/contact'
 import { DataStore } from './dataStore'
@@ -65,12 +66,24 @@ export class MemoryStore implements DataStore {
     }
 
     async deleteStudentCascade(id: number): Promise<void> {
+        const erased = this.sessions.filter(
+            (session) => session.studentId === id
+        )
         this.students = this.students.filter((student) => student.id !== id)
         this.sessions = this.sessions.filter(
             (session) => session.studentId !== id
         )
         this.settlements = this.settlements.filter(
             (settlement) => settlement.studentId !== id
+        )
+        // Rows filed under the student, and any whose class was theirs.
+        const theirClasses = new Set(
+            erased.map((session) => session.id)
+        )
+        this.attachments = this.attachments.filter(
+            (attachment) =>
+                attachment.studentId !== id &&
+                !theirClasses.has(attachment.sessionId)
         )
     }
 
@@ -141,6 +154,39 @@ export class MemoryStore implements DataStore {
 
     async putSiteContent(content: SiteContent): Promise<void> {
         this.siteContent = content
+    }
+
+    // --- Attachments (REQ-063) ---
+    private attachments: Attachment[] = []
+    private nextAttachment = 1
+
+    async listAttachments(): Promise<Attachment[]> {
+        return this.attachments
+    }
+
+    async getAttachment(id: number): Promise<Attachment | undefined> {
+        return this.attachments.find((attachment) => attachment.id === id)
+    }
+
+    async putAttachment(attachment: Attachment): Promise<void> {
+        const index = this.attachments.findIndex(
+            (item) => item.id === attachment.id
+        )
+        if (index >= 0) {
+            this.attachments[index] = attachment
+        } else {
+            this.attachments.push(attachment)
+        }
+    }
+
+    async deleteAttachment(id: number): Promise<void> {
+        this.attachments = this.attachments.filter(
+            (attachment) => attachment.id !== id
+        )
+    }
+
+    async nextAttachmentId(): Promise<number> {
+        return this.nextAttachment++
     }
 
     // --- Reminders (REQ-057) ---
