@@ -42,6 +42,11 @@ variable "environments" {
     # may ask for its app folder. Off by default: dev proves it first, and
     # prod's sign-in stays exactly as it is until the feature ships.
     onedrive_files = optional(bool, false)
+    # REQ-063: the SPA registration's display name, where it should read as
+    # more than a technical id. OneDrive names the app's folder after it
+    # (Apps/<name>) and Microsoft's consent screen shows it. Unset keeps
+    # "<project>-<env>-spa".
+    spa_display_name = optional(string)
   }))
   default = {
     dev = {
@@ -73,7 +78,12 @@ variable "environments" {
       # Enforced: the UK stack is deployed and Microsoft sign-in is verified
       # end-to-end, so the API now rejects unauthenticated calls (Art. 32).
       auth_enforced = true
-      data_store    = "tables"
+      # REQ-063 live (owner decision, 2026-11-12, incl. consumer terms and
+      # residency — PRIVACY-ROPA §6 gap 5): files in the teacher's OneDrive,
+      # under Apps/AbhiTutor.
+      onedrive_files   = true
+      spa_display_name = "AbhiTutor"
+      data_store       = "tables"
     }
   }
 }
